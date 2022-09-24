@@ -67,8 +67,6 @@ p1 / p2
 
 # Different causes of deaths per region ------------------------------------
 
-municipalities <- get_municipalities(year = 2020, scale = 4500)
-
 url_2 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/vaerak/statfin_vaerak_pxt_11ra.px"
 
 regions = c("MK01", "MK02", "MK04", "MK05",
@@ -96,25 +94,38 @@ px_data_3 <- pxweb_get(url = url_3, query = query_3)
 causes <- as.data.frame(px_data_3, column.name.type = "text", variable.value.type = "text")
 
 
-
-causes |>
+causes <- causes |>
   rename(Alue = Maakunta) |>
-  left_join(population, by = c("Alue", "Vuosi")) |> View()
-
-
-
-  mutate(maakunta_name_fi = str_remove_all(maakunta_name_fi, "MK.. "))
+  left_join(population, by = c("Alue", "Vuosi")) |>
+  rename(region = Alue, cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
+         year = Vuosi, deaths = Kuolleet, population = "Väestö 31.12.") |>
+        mutate(region = str_remove_all(region, "MK.. "))
   
 
+causes <- causes |>
+  mutate(deaths_per_100k = deaths/population * 100000) |>
+  group_by(region, cause) |>
+  summarise(deaths_per_100k = mean(deaths_per_100k))
+
+municipalities <- get_municipalities(year = 2020, scale = 4500)
+
+municipalities <- municipalities |>
+  group_by(maakunta_name_fi) |>
+  summarise() |>
+  rename(region = maakunta_name_fi)
+
+attributes(municipalities)
+
+causes_coord <- causes |>
+  left_join(municipalities, by = "region")
+
+causes_coord |>
+  filter(cause == "00-54 Yhteensä") |>
+  ggplot() + 
+   geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
+  scale_fill_distiller(palette = "Spectral")
+
+# Color option for color blind:
+# scale_fill_viridis_c(option = "turbo")
 
 
-
-ggplot(municipalities) + 
-  geom_sf(aes(fill = as.integer(kunta)))
-
-municipalities %>% 
-  group_by(maakunta_name_fi) %>% summarise()
-
-ggplot(regions) + 
-  geom_sf(aes(fill = maakunta_name_fi)) +
-  scale_fill_viridis_d()
