@@ -3,6 +3,10 @@ library(patchwork)
 library(geofi)
 library(pxweb)
 
+# Little summary here:
+# tell the purpose of this work and few important stats
+
+
 # How deadly are the different months? ----------------------------------------
 
 url_1 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/kuol/statfin_kuol_pxt_12ah.px"
@@ -162,19 +166,25 @@ by_cause <- function(cause_1){
     # scale_fill_viridis_c(option = "turbo")
 }
 
+length(unique(causes_coord$cause_eng))
+
+# I'll focus mostly on other causes of death than disease, because those
+# don't correlate so strongly with age.
+
 by_cause("00-54 Total")
-by_cause("01-03 Certain infectious and parasitic diseases (A00-B99, J65)")
-by_cause("48 Accidental poisonings excl. accidental poisoning by alcohol (X40-X44, X46-X49, Y10-Y15)")
-by_cause("35 Other diseases of the respiratory system (J00-J06, J20-J39, J60-J64, J66-J848, J85-J99)")
-
-
-
-
-causes_coord |>
-  filter(cause == "50 Itsemurhat (X60-X84, Y870)") |>
-  ggplot() + 
-  geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
-  scale_fill_distiller(palette = "Spectral")
+by_cause("04-22 Neoplasms (C00-D48)")
+by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
+by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)")
+by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)")
+by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)")
+by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol")
+by_cause("42-53 Accidents and violence excl. accidental poisoning by alcohol (V01-X44, X46-Y89)")
+by_cause("42 Land traffic accidents")
+by_cause("47 Accidental drownings (W65-W74)")
+by_cause("50 Suicides (X60-X84, Y870)")
+by_cause("51 Assault (X85-Y09, Y871)")
+by_cause("52 Event of undetermined intent (Y16-Y34, Y872)")
+by_cause("54 No death certificate")
 
 
 
