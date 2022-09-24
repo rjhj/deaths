@@ -64,3 +64,57 @@ monthly |>
 
 p1 / p2
 
+
+# Different causes of deaths per region ------------------------------------
+
+municipalities <- get_municipalities(year = 2020, scale = 4500)
+
+url_2 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/vaerak/statfin_vaerak_pxt_11ra.px"
+
+regions = c("MK01", "MK02", "MK04", "MK05",
+         "MK06", "MK07", "MK08", "MK09",
+         "MK10", "MK11", "MK12", "MK13",
+         "MK14", "MK15", "MK16", "MK17",
+         "MK18", "MK19", "MK21")
+
+years = c("2016", "2017", "2018", "2019", "2020")
+
+query_2 = list("Alue" = regions,
+               "Tiedot" = c("vaesto"),
+               "Vuosi" = years)
+
+px_data_2 <- pxweb_get(url = url_2, query = query_2)
+population <- as.data.frame(px_data_2, column.name.type = "text", variable.value.type = "text")
+
+url_3 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px"
+query_3 = list("Maakunta" = regions,
+               "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
+               "Vuosi" = years,
+               "Tiedot" = c("*"))
+
+px_data_3 <- pxweb_get(url = url_3, query = query_3)
+causes <- as.data.frame(px_data_3, column.name.type = "text", variable.value.type = "text")
+
+
+
+causes |>
+  rename(Alue = Maakunta) |>
+  left_join(population, by = c("Alue", "Vuosi")) |> View()
+
+
+
+  mutate(maakunta_name_fi = str_remove_all(maakunta_name_fi, "MK.. "))
+  
+
+
+
+
+ggplot(municipalities) + 
+  geom_sf(aes(fill = as.integer(kunta)))
+
+municipalities %>% 
+  group_by(maakunta_name_fi) %>% summarise()
+
+ggplot(regions) + 
+  geom_sf(aes(fill = maakunta_name_fi)) +
+  scale_fill_viridis_d()
