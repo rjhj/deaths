@@ -65,8 +65,11 @@ monthly |>
 p1 / p2
 
 
-# Different causes of deaths per region ------------------------------------
+# Different causes of deaths by region ------------------------------------
+# source: 11bt -- Deaths by underlying cause of death (time series classification) and region, 1969-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bt.px/
 
+# For population per region
 url_2 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/vaerak/statfin_vaerak_pxt_11ra.px"
 
 regions = c("MK01", "MK02", "MK04", "MK05",
@@ -84,27 +87,39 @@ query_2 = list("Alue" = regions,
 px_data_2 <- pxweb_get(url = url_2, query = query_2)
 population <- as.data.frame(px_data_2, column.name.type = "text", variable.value.type = "text")
 
+
+# For causes of death per region
 url_3 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px"
+
+# For English translations of causes
+url_4 = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px"
+
 query_3 = list("Maakunta" = regions,
                "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
                "Vuosi" = years,
                "Tiedot" = c("*"))
 
 px_data_3 <- pxweb_get(url = url_3, query = query_3)
-causes <- as.data.frame(px_data_3, column.name.type = "text", variable.value.type = "text")
+px_data_4 <- pxweb_get(url = url_4, query = query_3)
 
+causes <- as_tibble(as.data.frame(px_data_3, column.name.type = "text", variable.value.type = "text"))
+eng_translation <- as.data.frame(px_data_4, column.name.type = "text", variable.value.type = "text")
+
+eng_translation <- eng_translation |>
+  select("Underlying cause of death (time series classification)")
 
 causes <- causes |>
-  rename(Alue = Maakunta) |>
-  left_join(population, by = c("Alue", "Vuosi")) |>
-  rename(region = Alue, cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
+  bind_cols(eng_translation) |>
+  left_join(population, by = c("Maakunta" = "Alue", "Vuosi" = "Vuosi")) |>
+  mutate(Maakunta = str_remove_all(Maakunta, "MK.. ")) |>
+  rename(region = Maakunta,
+         cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
+         cause_eng = "Underlying cause of death (time series classification)",
          year = Vuosi, deaths = Kuolleet, population = "Väestö 31.12.") |>
-        mutate(region = str_remove_all(region, "MK.. "))
-  
+  mutate(deaths_per_100k = deaths/population * 100000)
 
-causes <- causes |>
-  mutate(deaths_per_100k = deaths/population * 100000) |>
-  group_by(region, cause) |>
+causes_summary <- causes |>
+  group_by(region, cause_eng) |>
   summarise(deaths_per_100k = mean(deaths_per_100k))
 
 municipalities <- get_municipalities(year = 2020, scale = 4500)
@@ -115,29 +130,32 @@ municipalities <- municipalities |>
   rename(region = maakunta_name_fi)
 
 causes_coord <- municipalities |>
-  left_join(causes, by = "region")
+  left_join(causes_summary, by = "region")
 
 
-by_cause <- function(cause_1, title_1){
+by_cause <- function(cause_1){
   
-    title_2 <- paste0(title_1, " (yearly deaths / 100,000 people)")
-
     causes_coord |>
-      filter(cause == cause_1) |>
+      filter(cause_eng == cause_1) |>
       ggplot() + 
       geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
       scale_fill_distiller(palette = "Spectral") +
-      labs(subtitle = title_2, fill = NULL) +
+      labs(subtitle = cause_1, fill = NULL) +
       theme(legend.position = c(0.2, 0.6),
             legend.background = element_blank())
     # Color option for color blind:
     # scale_fill_viridis_c(option = "turbo")
 }
 
-by_cause("00-54 Yhteensä", "All causes")
-
-
+by_cause("00-54 Total")
+by_cause("01-03 Certain infectious and parasitic diseases (A00-B99, J65)")
+by_cause("48 Accidental poisonings excl. accidental poisoning by alcohol (X40-X44, X46-X49, Y10-Y15)")
+by_cause("25 Dementia, Alzheimerin tauti (F01, F03, G30, R54)", "Dementia, Alzheimers")
+by_cause("27-30 Verenkiertoelinten sairaudet pl. alkoholiperäiset (I00-I425, I427-I99)", "Diabetes")
+by_cause("23 Diabetes (E10-E14)", "Diabetes")
 by_cause("50 Itsemurhat (X60-X84, Y870)", "Suicides")
+
+
 
 causes_coord |>
   filter(cause == "50 Itsemurhat (X60-X84, Y870)") |>
@@ -148,5 +166,4 @@ causes_coord |>
 
 
 (p1 | (p2 / p3)) + 
-  plot_annotation(title = 'Average deaths per year (2016-2020) per region for some causes of death')
-
+  plot_annotation(title = "Cause of death (2016-2020) by region, (yearly deaths / 100,000 people)")
