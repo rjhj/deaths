@@ -34,7 +34,8 @@ monthly |>
   mutate(deaths_daily = as.integer(deaths / avg_days_per_month)) |>
   ggplot(aes(month, deaths_daily)) +
   geom_col() +
-  geom_text(aes(label = deaths_daily), vjust = 1.5, color = "white") +
+  geom_text(aes(label = deaths_daily), vjust = 1.5,
+            color = "white", size = 3.5) +
   labs(title = "Daily deaths in Finland per month (1945-2021)",
        subtitle = "Death rates are higher in winter months",
        y = NULL,
@@ -53,10 +54,13 @@ monthly |>
   ggplot(aes(month, deaths_daily)) +
   geom_col() +
   facet_wrap(vars(decade), nrow = 2) +
+  geom_text(aes(label = deaths_daily),
+            color = "white", size = 3.5, angle = 270, hjust = -0.15) +
   theme(axis.text.x = element_text(angle=90)) +
   labs(subtitle = "Per decade",
        y = NULL,
        x = NULL,
-       caption = "source: Tilastokeskus, Kuolleet kuukausittain, 1945-2021") -> p2
+       caption = "source: Tilastokeskus - Kuolleet kuukausittain, 1945-2021") -> p2
 
 p1 / p2
+
