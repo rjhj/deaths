@@ -114,18 +114,39 @@ municipalities <- municipalities |>
   summarise() |>
   rename(region = maakunta_name_fi)
 
-attributes(municipalities)
+causes_coord <- municipalities |>
+  left_join(causes, by = "region")
 
-causes_coord <- causes |>
-  left_join(municipalities, by = "region")
+
+by_cause <- function(cause_1, title_1){
+  
+    title_2 <- paste0(title_1, " (yearly deaths / 100,000 people)")
+
+    causes_coord |>
+      filter(cause == cause_1) |>
+      ggplot() + 
+      geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
+      scale_fill_distiller(palette = "Spectral") +
+      labs(subtitle = title_2, fill = NULL) +
+      theme(legend.position = c(0.2, 0.6),
+            legend.background = element_blank())
+    # Color option for color blind:
+    # scale_fill_viridis_c(option = "turbo")
+}
+
+by_cause("00-54 Yhteensä", "All causes")
+
+
+by_cause("50 Itsemurhat (X60-X84, Y870)", "Suicides")
 
 causes_coord |>
-  filter(cause == "00-54 Yhteensä") |>
+  filter(cause == "50 Itsemurhat (X60-X84, Y870)") |>
   ggplot() + 
-   geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
+  geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
   scale_fill_distiller(palette = "Spectral")
 
-# Color option for color blind:
-# scale_fill_viridis_c(option = "turbo")
 
+
+(p1 | (p2 / p3)) + 
+  plot_annotation(title = 'Average deaths per year (2016-2020) per region for some causes of death')
 
