@@ -132,15 +132,30 @@ municipalities <- municipalities |>
 causes_coord <- municipalities |>
   left_join(causes_summary, by = "region")
 
+add_linebreak <- function(s1){
+  
+  middle_position = (nchar(s1) -1) / 2
+  
+  second_half = str_sub(s1, middle_position)
+  
+  space_location_second_half = str_locate(second_half, " ") - 1
+  
+  space_location = middle_position + space_location_second_half[[1]]
+  
+  substr(s1, space_location, space_location ) <- "\n"
+  s1
+}
 
 by_cause <- function(cause_1){
   
+    title_1 = add_linebreak(cause_1)
+    title_2 = "48 Accidental poisonings excl. accidental poisoning\n by alcohol (X40-X44, X46-X49, Y10-Y15)"
     causes_coord |>
       filter(cause_eng == cause_1) |>
       ggplot() + 
       geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
       scale_fill_distiller(palette = "Spectral") +
-      labs(subtitle = cause_1, fill = NULL) +
+      labs(subtitle = title_1, fill = NULL) +
       theme(legend.position = c(0.2, 0.6),
             legend.background = element_blank())
     # Color option for color blind:
@@ -150,10 +165,8 @@ by_cause <- function(cause_1){
 by_cause("00-54 Total")
 by_cause("01-03 Certain infectious and parasitic diseases (A00-B99, J65)")
 by_cause("48 Accidental poisonings excl. accidental poisoning by alcohol (X40-X44, X46-X49, Y10-Y15)")
-by_cause("25 Dementia, Alzheimerin tauti (F01, F03, G30, R54)", "Dementia, Alzheimers")
-by_cause("27-30 Verenkiertoelinten sairaudet pl. alkoholiperäiset (I00-I425, I427-I99)", "Diabetes")
-by_cause("23 Diabetes (E10-E14)", "Diabetes")
-by_cause("50 Itsemurhat (X60-X84, Y870)", "Suicides")
+by_cause("35 Other diseases of the respiratory system (J00-J06, J20-J39, J60-J64, J66-J848, J85-J99)")
+
 
 
 
