@@ -3,6 +3,7 @@ library(patchwork)
 library(geofi)
 library(pxweb)
 library(scales)
+library(lubridate)
 
 # Little summary here:
 # tell the purpose of this work and few important stats
@@ -21,7 +22,6 @@ px_data <- pxweb_get(url = url, query = query)
 deaths <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
 
 
-
 df <- df |>
   filter(Year != "1750") |>
   left_join(deaths) |>
@@ -37,7 +37,7 @@ labels = tribble(
   ~year, ~deaths, ~label,
   1868,  137720, "Finnish famine (1866–1868)",
   1918,  95102,  "Civil War (1918)",
-  1948,  71846,  "Winter, Continuation,\nLapland Wars (1939–45)",
+  1948,  71846,  "Winter, Continuation &\nLapland Wars (1939–45)",
   1833,  63738,  "Smallpox, dysentery\n& influenza (1833)",
   1806,  53942,  "Finnish War (1808-09)"
 )
@@ -56,31 +56,120 @@ ggplot(df_year_deaths, aes(year, deaths)) +
        y = NULL,
        x = NULL) -> p1
 
+
+df_year_deaths |>
+  ggplot(aes(year, population)) +
+  geom_line(size = 1.1) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(subtitle = "Population",
+       y = NULL,
+       x = NULL) -> p2
+
+df_year_deaths |>
+  mutate(death_rate = round(deaths / population * 100000)) |>
+  ggplot(aes(year, death_rate)) +
+  geom_line(size = 1.1) +
+  labs(subtitle = "Deaths / 100,000 people",
+       y = NULL,
+       x = NULL) -> p3
+
+p1 /
+(p2 | p3)
+
+
 df |>
   filter(year >= 1920) |>
-ggplot(aes(year, deaths, color = sex)) +
+  ggplot(aes(year, deaths, color = sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
   scale_y_continuous(labels = scales::comma) +
   theme(legend.position = c(0.8, 0.8),
         legend.background = element_blank()) +
   labs(title = "Deaths by sex (1920 - 2021)",
-       subtitle = "Many men died during 1939–45 wars",
+       subtitle = "Lots of male deaths during the war time",
        y = NULL,
-       x = NULL) -> p2
+       x = NULL) -> p4
 
-df_year_deaths |>
-  mutate(death_rate = round(deaths / population * 100000)) |>
-         ggplot(aes(year, death_rate)) +
-  geom_line(size = 1.1) +
-  labs(title = "Deaths / 100,000 people",
-       subtitle = "Life has been getting safer and people live longer",
+p4
+
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_12z6.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Kuukausi"=c("*"),
+             "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"))
+px_data <- pxweb_get(url = url, query = query)
+deaths_cause <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+
+deaths_cause <- deaths_cause |>
+  rename(month = Kuukausi,
+         cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
+         sex = Sukupuoli,
+         deaths = Kuolleet) |>
+  mutate(sex = if_else(sex == "Miehet", "males", "females")) |>
+  mutate(sex = as_factor(sex))
+         
+
+avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+deaths_cause |>
+  mutate(month = str_remove_all(month, "....M")) |>
+  filter(cause == "50 Itsemurhat (X60-X84, Y870)") |>
+  group_by(month) |>
+  summarise(deaths = mean(deaths)) |>
+  mutate(daily_deaths = deaths / avg_days_per_month) |>
+  ggplot(aes(month, daily_deaths)) +
+  geom_col() +
+  labs(title = "Daily suicides per month (data: Jan 1971 - Dec 2020)",
+       subtitle = "More suicides occur during summer months",
        y = NULL,
-       x = NULL) -> p3
+       x = NULL)
 
 
-p1 /
-(p2 | p3)
+deaths_cause |>
+  mutate(month = ym(month))
+
+deaths_cause |>
+  filter(cause == "50 Itsemurhat (X60-X84, Y870)") |>
+  ggplot(aes(month, deaths, color = sex)) +
+  geom_point(alpha = 0.5) +
+  geom_line(alpha = 0.5) +
+  geom_smooth(size = 2, method = "loess", formula = "y ~ x") +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = c(0.8, 0.8),
+        legend.background = element_blank()) +
+  labs(subtitle = "Suicides monthly by sex (Jan 1971 - Dec 2020)",
+       y = NULL,
+       x = NULL)
+
+deaths_cause |>
+  filter(cause == "25 Dementia, Alzheimerin tauti (F01, F03, G30, R54)") |>
+  ggplot(aes(month, deaths, color = sex)) +
+  geom_point(alpha = 0.5) +
+  geom_line(alpha = 0.5) +
+  geom_smooth(size = 2, method = "loess", formula = "y ~ x") +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.background = element_blank()) +
+  labs(subtitle = "Dementia, Alzheimer's deaths monthly by sex (Jan 1971 - Dec 2020)",
+       y = NULL,
+       x = NULL)
+
+deaths_cause |>
+  filter(cause == "42-53 Tapaturmat ja väkivalta pl. tapaturmainen alkoholimyrkytys (V01-X44, X46-Y89)") |>
+  ggplot(aes(month, deaths, color = sex)) +
+  geom_point(alpha = 0.5) +
+  geom_line(alpha = 0.5) +
+  geom_smooth(size = 2, method = "loess", formula = "y ~ x") +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.background = element_blank()) +
+  labs(subtitle = ".... deaths monthly by sex (Jan 1971 - Dec 2020)",
+       y = NULL,
+       x = NULL)
+
+
+# plot_annotation(title = "..",
+#                 subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
+#                                   "by underlying cause of death and region per 100,000 inhabitants."),
+#                 caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
 
 
 # How deadly are the different months? ----------------------------------------
@@ -271,6 +360,32 @@ p12 <- by_cause("54 No death certificate")
             "by underlying cause of death and region per 100,000 inhabitants."),
   caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
 
+
+
+
+# Suicides ----------------------------------------------------------------
+
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11by.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"), "Ikä" = c("*"))
+px_data <- pxweb_get(url = url, query = query)
+suicides <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+
+suicides <- suicides |>
+  rename(age = Age, year = Year, sex = Gender, suicides = Suicides) |>
+  mutate(year = as.integer(year),
+         sex = as_factor(sex))
+
+suicides |>
+  filter(age == "Total") |>
+  ggplot(aes(year, suicides, color = sex)) +
+  geom_line(size = 1.1) +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.background = element_blank()) +
+  labs(subtitle = "Suicides / year (1921 - 2020)",
+       y = NULL,
+       x = NULL)
+  
 
 # What is the life expectancy by age and sex? -----------------------------
 
