@@ -3,7 +3,6 @@ library(patchwork)
 library(geofi)
 library(pxweb)
 library(scales)
-library(ggrepel)
 
 # Little summary here:
 # tell the purpose of this work and few important stats
@@ -26,43 +25,51 @@ deaths <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.v
 df <- df |>
   filter(Year != "1750") |>
   left_join(deaths) |>
-  rename(Population = "Population 31 Dec") |>
-  mutate(Year = as.integer(Year),
-         Sex = as_factor(Sex),
-         Death_rate = round(Deaths/Population*100000))
+  rename(population = "Population 31 Dec",
+         year = Year,
+         sex = Sex,
+         deaths = Deaths) |>
+  mutate(year = as.integer(year),
+         sex = as_factor(sex))
 
 # Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
 labels = tribble(
-  ~Year, ~Deaths, ~Label,
+  ~year, ~deaths, ~label,
   1868,  137720, "Finnish famine (1866–1868)",
-  1918,  95102,  "Civil War (1918)",
-  1940,  71846,  "Winter + Continuation War (1939–44)",
-  1833,  63738,  "Smallpox, dysentery & influenza",
+  1918,  95102,  "Civil War(1918)",
+  1943,  71846,  "Winter, Continuation,\nLapland Wars (1939–45)",
+  1833,  63738,  "Smallpox, dysentery\n& influenza (1833)",
   1808,  53942,  "Finnish War (1808-09)"
 )
 
 df_year_deaths <- df |>
-  group_by(Year) |>
-  summarise(Deaths = sum(Deaths))
+  group_by(year) |>
+  summarise(deaths = sum(deaths), population = sum(population))
 
-ggplot(df_year_deaths, aes(Year, Deaths)) +
+
+ggplot(df_year_deaths, aes(year, deaths)) +
   geom_line() +
   scale_y_continuous(labels = scales::comma) +
-  geom_label_repel(aes(label=Label), size=2, data=labels) 
+  geom_text(aes(label=label), size=3, vjust = -0.5, data=labels) +
+  labs(title = "Deaths in Finland (1751 - 2021)",
+       subtitle = "Nowadays around 55,000 people die in a year (1% death rate)",
+       y = NULL,
+       x = NULL)
 
-
+#  filter(Year >= 1900) |>
 df_year_deaths |>
-  slice_max(order_by = Deaths, n = 30) |> View()
+  mutate(death_rate = round(deaths / population * 100000)) |>
+         ggplot(aes(year, death_rate)) +
+  geom_line() +
+  labs(title = "Deaths / 100,000 people",
+       subtitle = "Life has been getting safer and people live longer",
+       y = NULL,
+       x = NULL)
 
 
-df |>
-  filter(Year >= 1900) |>
-ggplot(aes(Year, Death_rate, color = Sex)) +
-  geom_point() +
-  geom_line()
 
 ggplot(df, aes(Year, Deaths, color = Sex)) +
-  geom_line()
+  geom_line() 
 
 
 # How deadly are the different months? ----------------------------------------
