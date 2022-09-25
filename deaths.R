@@ -2,9 +2,67 @@ library(tidyverse)
 library(patchwork)
 library(geofi)
 library(pxweb)
+library(scales)
+library(ggrepel)
 
 # Little summary here:
 # tell the purpose of this work and few important stats
+
+
+# Overview of deaths in Finland -------------------------------------------
+
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/vaerak/statfin_vaerak_pxt_11rb.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("vaesto"), "Vuosi"=c("*"))
+px_data <- pxweb_get(url = url, query = query)
+df <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12af.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"))
+px_data <- pxweb_get(url = url, query = query)
+deaths <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+
+
+
+df <- df |>
+  filter(Year != "1750") |>
+  left_join(deaths) |>
+  rename(Population = "Population 31 Dec") |>
+  mutate(Year = as.integer(Year),
+         Sex = as_factor(Sex),
+         Death_rate = round(Deaths/Population*100000))
+
+# Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
+labels = tribble(
+  ~Year, ~Deaths, ~Label,
+  1868,  137720, "Finnish famine (1866–1868)",
+  1918,  95102,  "Civil War (1918)",
+  1940,  71846,  "Winter + Continuation War (1939–44)",
+  1833,  63738,  "Smallpox, dysentery & influenza",
+  1808,  53942,  "Finnish War (1808-09)"
+)
+
+df_year_deaths <- df |>
+  group_by(Year) |>
+  summarise(Deaths = sum(Deaths))
+
+ggplot(df_year_deaths, aes(Year, Deaths)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::comma) +
+  geom_label_repel(aes(label=Label), size=2, data=labels) 
+
+
+df_year_deaths |>
+  slice_max(order_by = Deaths, n = 30) |> View()
+
+
+df |>
+  filter(Year >= 1900) |>
+ggplot(aes(Year, Death_rate, color = Sex)) +
+  geom_point() +
+  geom_line()
+
+ggplot(df, aes(Year, Deaths, color = Sex)) +
+  geom_line()
 
 
 # How deadly are the different months? ----------------------------------------
@@ -69,7 +127,7 @@ monthly |>
 p1 / p2
 
 
-# Different causes of deaths by region ------------------------------------
+# What are the causes of deaths by region? ------------------------------------
 # source: 11bt -- Deaths by underlying cause of death (time series classification) and region, 1969-2020
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bt.px/
 
@@ -166,8 +224,6 @@ by_cause <- function(cause_1){
     # scale_fill_viridis_c(option = "turbo")
 }
 
-# I'll focus mostly on other causes of death than disease, because those
-# don't correlate so strongly with age.
 
 p1 <- by_cause("00-54 Total")
 p2 <- by_cause("04-22 Neoplasms (C00-D48)")
@@ -192,3 +248,27 @@ p12 <- by_cause("54 No death certificate")
 (p7 | p8 | p9) /
 (p10 | p11 | p12)
 
+
+# What is the life expectancy by age and sex? -----------------------------
+
+
+url_5 = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ap.px"
+
+query_5 = list("Sukupuoli" = c("1", "2"),
+               "Tiedot"=c("*"),
+               "Vuosi"=c("2020"),
+               "Ikä" = c("*"))
+
+px_data_5 <- pxweb_get(url = url_5, query = query_5)
+life <- as_tibble(as.data.frame(px_data_5, column.name.type = "text", variable.value.type = "text"))
+
+names(life)
+life <- life |>
+  mutate(Age = as.integer(Age),
+         Sex = as_factor(Sex)) |>
+  rename(life_expentancy = "Life expectancy, years",
+         survivors = "Survivors of 100,000 born alive",
+         death_prob = "Probability of death, per mille")
+
+ggplot(life, aes(Age, death_prob, color = Sex)) +
+  geom_point()
