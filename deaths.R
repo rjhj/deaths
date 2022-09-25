@@ -36,10 +36,10 @@ df <- df |>
 labels = tribble(
   ~year, ~deaths, ~label,
   1868,  137720, "Finnish famine (1866–1868)",
-  1918,  95102,  "Civil War(1918)",
-  1943,  71846,  "Winter, Continuation,\nLapland Wars (1939–45)",
+  1918,  95102,  "Civil War (1918)",
+  1948,  71846,  "Winter, Continuation,\nLapland Wars (1939–45)",
   1833,  63738,  "Smallpox, dysentery\n& influenza (1833)",
-  1808,  53942,  "Finnish War (1808-09)"
+  1806,  53942,  "Finnish War (1808-09)"
 )
 
 df_year_deaths <- df |>
@@ -48,28 +48,39 @@ df_year_deaths <- df |>
 
 
 ggplot(df_year_deaths, aes(year, deaths)) +
-  geom_line() +
+  geom_line(size = 1.1) +
   scale_y_continuous(labels = scales::comma) +
-  geom_text(aes(label=label), size=3, vjust = -0.5, data=labels) +
+  geom_text(aes(label=label), size=3.5, vjust = -0.5, data=labels) +
   labs(title = "Deaths in Finland (1751 - 2021)",
-       subtitle = "Nowadays around 55,000 people die in a year (1% death rate)",
+       subtitle = "In 2021 there were 57,659 deaths in Finland, highest since 1940s",
        y = NULL,
-       x = NULL)
+       x = NULL) -> p1
 
-#  filter(Year >= 1900) |>
+df |>
+  filter(year >= 1920) |>
+ggplot(aes(year, deaths, color = sex)) +
+  geom_line(size = 1.1) +
+  scale_colour_hue(direction = -1) +
+  scale_y_continuous(labels = scales::comma) +
+  theme(legend.position = c(0.8, 0.8),
+        legend.background = element_blank()) +
+  labs(title = "Deaths by sex (1920 - 2021)",
+       subtitle = "Many men died during 1939–45 wars",
+       y = NULL,
+       x = NULL) -> p2
+
 df_year_deaths |>
   mutate(death_rate = round(deaths / population * 100000)) |>
          ggplot(aes(year, death_rate)) +
-  geom_line() +
+  geom_line(size = 1.1) +
   labs(title = "Deaths / 100,000 people",
        subtitle = "Life has been getting safer and people live longer",
        y = NULL,
-       x = NULL)
+       x = NULL) -> p3
 
 
-
-ggplot(df, aes(Year, Deaths, color = Sex)) +
-  geom_line() 
+p1 /
+(p2 | p3)
 
 
 # How deadly are the different months? ----------------------------------------
