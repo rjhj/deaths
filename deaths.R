@@ -137,7 +137,7 @@ monthly |>
   geom_text(aes(label = deaths_daily),
             color = "white", size = 3.5, angle = 270, hjust = -0.15) +
   theme(axis.text.x = element_text(angle=90)) +
-  labs(subtitle = "Per decade",
+  labs(subtitle = "By decade",
        y = NULL,
        x = NULL,
        caption = "source: Tilastokeskus - Kuolleet kuukausittain, 1945-2021") -> p2
@@ -238,8 +238,6 @@ by_cause <- function(cause_1){
       labs(subtitle = title_1, fill = NULL) +
       theme(legend.position = c(0.2, 0.6),
             legend.background = element_blank())
-    # Color option for color blind:
-    # scale_fill_viridis_c(option = "turbo")
 }
 
 
@@ -261,10 +259,17 @@ p12 <- by_cause("54 No death certificate")
 
 ((p1 | p2 | p3) /  
 (p4 | p5 | p6)) + 
-  plot_annotation(title = "Underlying cause of death (/ 100,000 people)")
+  plot_annotation(title = "Total deaths and diseases related deaths",
+  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
+            "by underlying cause of death and region per 100,000 inhabitants."),
+  caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
 
 (p7 | p8 | p9) /
-(p10 | p11 | p12)
+(p10 | p11 | p12) + 
+  plot_annotation(title = "Alchohol, accidental, suicide related and other deaths",
+  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
+            "by underlying cause of death and region per 100,000 inhabitants."),
+  caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
 
 
 # What is the life expectancy by age and sex? -----------------------------
