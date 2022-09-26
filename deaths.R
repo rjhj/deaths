@@ -251,9 +251,10 @@ df_12am <- df_12am |>
 ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.2, 0.8),
-        legend.background = element_blank()) +
-  labs(title = "Life expectancy (years) at birth by sex, 1751-2021",
+  theme(legend.position = c(0.2, 0.81),
+        legend.background = element_blank(),
+        plot.title = element_text(hjust = 0.06),) +
+  labs(title = "By year (1751-2021)",
        y = NULL, x = NULL,
        caption = "source: Tilastokeskus 12am -- Life expectancy at birth by sex, 1751-2021"
        ) -> life_exp_plot
@@ -282,13 +283,13 @@ df_life_region |>
   ggplot() + 
   geom_sf(aes(geometry = geom, fill = Life_exp)) +
   scale_fill_distiller(palette = "Spectral", direction = 1) +
-  labs(title = "Life expectancy at birth (2018-2020)",
+  labs(title = "By region (2018-2020)",
        subtitle = "         Females", fill = NULL) +
   theme(legend.position = c(0.2, 0.6),
         legend.background = element_blank(),
         panel.background = element_rect(colour = "#CC79A7"),
         plot.title.position = "plot",
-        plot.margin = margin(r = 1.5, unit = "cm")) -> life_exp_region_f_plot
+        plot.margin = margin(r = 2.5, unit = "cm")) -> life_exp_region_f_plot
 
 df_life_region |>
   filter(Sex == "Males") |>
@@ -300,12 +301,13 @@ df_life_region |>
         legend.background = element_blank(),
           panel.background = element_rect(colour = "#0072B2")) -> life_exp_region_m_plot
 
-(life_exp_plot) /
+plot_life_exp <- (life_exp_plot) /
   (life_exp_region_f_plot + life_exp_region_m_plot) + 
-  plot_annotation(caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region") +
+  plot_annotation(title = "Life expectancy (years) at birth by sex",
+  caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region") +
   plot_layout(heights = c(1.5, 1.9))
 
-plot_life_exp
+ggsave("images//plot_life_exp.png", plot_life_exp, device = "png", scale = 1.8)
 
 # Overview of deaths in Finland -------------------------------------------
 
