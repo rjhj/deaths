@@ -25,7 +25,7 @@ library(scales)
 library(lubridate)
 ```
 
-## Yearly deaths
+## How many people die yearly?
 
 ```{r}
 px_12at <- pxweb_get(url = 
@@ -83,7 +83,7 @@ ggsave("images//plot_yearly.png", plot_yearly, device = "png", scale = 1.8)
 
 ![](images/plot_yearly.png)
 
-## How deadly are the different months?
+## Which month has the highest daily death rate?
 
 ```{r}
 px_12ah <- pxweb_get(url = 
@@ -146,7 +146,7 @@ ggsave("images//plot_months.png", plot_months, device = "png", scale = 1.8)
 
 ![](images/plot_months.png)
 
-## Causes of death per region
+## How do causes of death differ per region?
 
 ```{r}
 # For causes of death per region

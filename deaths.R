@@ -241,9 +241,9 @@ px_12am <- pxweb_get(url =
 query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 
 df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
-
+names(df_12am)
 df_12am <- df_12am |>
-  rename(Life_exp = "Life expectancy in Finland at birth, years") |>
+  rename(Life_exp = "Life expectancy at birth, years") |>
   mutate(Year = str_sub(Year, 1, 4)) |>
   mutate(Year = as.integer(Year),
          Sex = as_factor(Sex))
@@ -255,9 +255,57 @@ ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
         legend.background = element_blank()) +
   labs(title = "Life expectancy (years) at birth by sex, 1751-2021",
        y = NULL, x = NULL,
-       caption = "source: Tilastokeskus 12am -- Life expectancy at birth by sex, 1751-2021")
+       caption = "source: Tilastokeskus 12am -- Life expectancy at birth by sex, 1751-2021"
+       ) -> life_exp_plot
 
+# Life expectancy by region
+px_12an <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12an.px",
+query = list(
+"Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
+          "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
+"Vuosi" = c("2020"),
+"Sukupuoli" = c("1", "2"),
+"Tiedot" = c("*")))
 
+df_12an <- as_tibble(as.data.frame(px_12an, column.name.type = "text", variable.value.type = "text"))
+
+df_12an <- df_12an |> 
+  rename(Life_exp = "Life expectancy at birth, years") |>
+  mutate(Region = str_remove_all(Region, "MK.. "))
+  
+df_life_region <- df_region_map |>
+  left_join(df_12an, by = c("Region"))
+
+df_life_region |>
+  filter(Sex == "Females") |>
+  ggplot() + 
+  geom_sf(aes(geometry = geom, fill = Life_exp)) +
+  scale_fill_distiller(palette = "Spectral", direction = 1) +
+  labs(title = "Life expectancy at birth (2018-2020)",
+       subtitle = "         Females", fill = NULL) +
+  theme(legend.position = c(0.2, 0.6),
+        legend.background = element_blank(),
+        panel.background = element_rect(colour = "#CC79A7"),
+        plot.title.position = "plot",
+        plot.margin = margin(r = 1.5, unit = "cm")) -> life_exp_region_f_plot
+
+df_life_region |>
+  filter(Sex == "Males") |>
+  ggplot() + 
+  geom_sf(aes(geometry = geom, fill = Life_exp)) +
+  scale_fill_distiller(palette = "Spectral", direction = 1) +
+  labs(subtitle = "Males", fill = NULL) +
+  theme(legend.position = c(0.2, 0.6),
+        legend.background = element_blank(),
+          panel.background = element_rect(colour = "#0072B2")) -> life_exp_region_m_plot
+
+(life_exp_plot) /
+  (life_exp_region_f_plot + life_exp_region_m_plot) + 
+  plot_annotation(caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region") +
+  plot_layout(heights = c(1.5, 1.9))
+
+plot_life_exp
 
 # Overview of deaths in Finland -------------------------------------------
 
