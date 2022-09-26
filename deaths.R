@@ -57,12 +57,12 @@ yearly_births_plot <- yearly_plot(df_12at, Live_births, "Live births")
 yearly_death_rate_plot <- yearly_plot(df_12at, Death_rate, "Deaths / 100,000 people")
 
 
-(yearly_deaths_plot /
+plot_yearly <- (yearly_deaths_plot /
 (yearly_population_plot | yearly_births_plot | yearly_death_rate_plot)) + 
-  plot_annotation(title = "Finland, Vital statistics, 1749 - 2021",
+  plot_annotation(title = "Deaths & population statistics, Finland, 1749 - 2021",
                   caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021")
 
-
+ggsave("images//plot_yearly.png", plot_yearly, device = "png", scale = 1.8)
 
 # How deadly are the different months? ----------------------------------------
 
