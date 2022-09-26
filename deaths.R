@@ -11,18 +11,55 @@ library(lubridate)
 
 # Yearly deaths, births and population? --------------------------------------- 
 # source: statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12at.px/table/tableViewLayout1/
-tilastokeskus_12at <- pxweb_get(url = 
+px_data <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
-          query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*"))) |>
-  as.data.frame(column.name.type = "text", variable.value.type = "text") |>
-  as_tibble()
+          query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
+  
+tilastokeskus_12at <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+
 
 tilastokeskus_12at <- tilastokeskus_12at |>
   rename(Live_births = "Live births") |>
-  mutate(Year = as.integer(Year))
+  mutate(Year = as.integer(Year),
+         Death_rate = Deaths / Population * 100000)
+
+# Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
+labels = tribble(
+  ~Year, ~Deaths, ~Label,
+  1868,  137720, "Finnish famine (1866–1868)",
+  1918,  95102,  "Civil War (1918)",
+  1948,  71846,  "Winter, Continuation &\nLapland Wars (1939–45)",
+  1833,  63738,  "Smallpox, dysentery\n& influenza (1833)",
+  1806,  53942,  "Finnish War (1808-09)",
+  2005,  52659,  "In 2021 there were\n57,659 deaths in Finland,\nhighest since 1940s"
+)
+
+ggplot(tilastokeskus_12at, aes(Year, Deaths)) +
+  geom_line(size = 1.1) +
+  scale_x_continuous(breaks = seq(1750, 2020, 25)) +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
+  geom_text(aes(label=Label), size=3.5, vjust = -0.5, data=labels) +
+  labs(title = "Deaths in Finland (1749 - 2021)",
+       y = NULL,
+       x = NULL) -> yearly_deaths_plot
+
+yearly_plot <- function(df, y_stat, subtitle) {
+  ggplot(df, aes(Year, {{y_stat}})) +
+    geom_line(size = 1.1) +
+    scale_x_continuous(breaks = seq(1750, 2020, 50)) +
+    scale_y_continuous(labels = scales::comma) +
+    labs(subtitle = subtitle,
+         y = NULL,
+         x = NULL)   
+}
+
+yearly_population_plot <- yearly_plot(tilastokeskus_12at, Population, "Population")
+yearly_births_plot <- yearly_plot(tilastokeskus_12at, Live_births, "Live births")
+yearly_death_rate_plot <- yearly_plot(tilastokeskus_12at, Death_rate, "Deaths / 100,000 people")
 
 
-
+yearly_deaths_plot /
+(yearly_population_plot | yearly_births_plot | yearly_death_rate_plot)
 
 
 # Overview of deaths in Finland -------------------------------------------
