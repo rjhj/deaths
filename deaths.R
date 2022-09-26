@@ -16,7 +16,6 @@ px_12at <- pxweb_get(url =
   
 df_12at <- as_tibble(as.data.frame(px_12at, column.name.type = "text", variable.value.type = "text"))
 
-
 df_12at <- df_12at |>
   rename(Live_births = "Live births") |>
   mutate(Year = as.integer(Year),
@@ -55,7 +54,6 @@ yearly_plot <- function(df, y_stat, subtitle) {
 yearly_population_plot <- yearly_plot(df_12at, Population, "Population")
 yearly_births_plot <- yearly_plot(df_12at, Live_births, "Live births")
 yearly_death_rate_plot <- yearly_plot(df_12at, Death_rate, "Deaths / 100,000 people")
-
 
 plot_yearly <- (yearly_deaths_plot /
 (yearly_population_plot | yearly_births_plot | yearly_death_rate_plot)) + 
@@ -119,7 +117,9 @@ df_12ah |>
        caption = "source: Tilastokeskus 12ah -- Kuolleet kuukausittain, 1945-2021"
        ) -> daily_deaths_decade_plot
 
-daily_deaths_month_plot / daily_deaths_decade_plot
+plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot
+
+ggsave("images//plot_months.png", plot_months, device = "png", scale = 1.8)
 
 
 # Causes of death per region --------------------------------------------------
@@ -201,7 +201,6 @@ by_cause <- function(cause_1){
           legend.background = element_blank())
 }
 
-
 p1 <- by_cause("00-54 Total")
 p2 <- by_cause("04-22 Neoplasms (C00-D48)")
 p3 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
@@ -218,20 +217,22 @@ p10 <- by_cause("50 Suicides (X60-X84, Y870)")
 p11 <- by_cause("51 Assault (X85-Y09, Y871)")
 p12 <- by_cause("54 No death certificate")
 
-((p1 | p2 | p3) /  
+plot_regions_1 <- ((p1 | p2 | p3) /  
     (p4 | p5 | p6)) + 
-  plot_annotation(title = "Total deaths and diseases related deaths",
+  plot_annotation(title = "Total and diseases related deaths",
                   subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
                                     "by underlying cause of death and region per 100,000 inhabitants."),
                   caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
 
-(p7 | p8 | p9) /
+plot_regions_2 <- (p7 | p8 | p9) /
   (p10 | p11 | p12) + 
   plot_annotation(title = "Alchohol, accidental, suicide and other deaths",
                   subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
                                     "by underlying cause of death and region per 100,000 inhabitants."),
                   caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
 
+ggsave("images//plot_regions_1.png", plot_regions_1, device = "png", scale = 1.8)
+ggsave("images//plot_regions_2.png", plot_regions_2, device = "png", scale = 1.8)
 
 # Life expectancy at birth---------------- -----------------------------------
 
