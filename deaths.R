@@ -9,16 +9,15 @@ library(lubridate)
 # tell the purpose of this work and few important stats
 
 
-# Yearly deaths, births and population? --------------------------------------- 
-# source: statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12at.px/table/tableViewLayout1/
-px_data <- pxweb_get(url = 
+# Yearly overview --------------------------------------------------- 
+px_12at <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
           query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
   
-tilastokeskus_12at <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+df_12at <- as_tibble(as.data.frame(px_12at, column.name.type = "text", variable.value.type = "text"))
 
 
-tilastokeskus_12at <- tilastokeskus_12at |>
+df_12at <- df_12at |>
   rename(Live_births = "Live births") |>
   mutate(Year = as.integer(Year),
          Death_rate = Deaths / Population * 100000)
@@ -34,12 +33,12 @@ labels = tribble(
   2005,  52659,  "In 2021 there were\n57,659 deaths in Finland,\nhighest since 1940s"
 )
 
-ggplot(tilastokeskus_12at, aes(Year, Deaths)) +
+ggplot(df_12at, aes(Year, Deaths)) +
   geom_line(size = 1.1) +
   scale_x_continuous(breaks = seq(1750, 2020, 25)) +
   scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
   geom_text(aes(label=Label), size=3.5, vjust = -0.5, data=labels) +
-  labs(title = "Deaths in Finland (1749 - 2021)",
+  labs(subtitle = "Deaths",
        y = NULL,
        x = NULL) -> yearly_deaths_plot
 
@@ -53,13 +52,89 @@ yearly_plot <- function(df, y_stat, subtitle) {
          x = NULL)   
 }
 
-yearly_population_plot <- yearly_plot(tilastokeskus_12at, Population, "Population")
-yearly_births_plot <- yearly_plot(tilastokeskus_12at, Live_births, "Live births")
-yearly_death_rate_plot <- yearly_plot(tilastokeskus_12at, Death_rate, "Deaths / 100,000 people")
+yearly_population_plot <- yearly_plot(df_12at, Population, "Population")
+yearly_births_plot <- yearly_plot(df_12at, Live_births, "Live births")
+yearly_death_rate_plot <- yearly_plot(df_12at, Death_rate, "Deaths / 100,000 people")
 
 
-yearly_deaths_plot /
-(yearly_population_plot | yearly_births_plot | yearly_death_rate_plot)
+(yearly_deaths_plot /
+(yearly_population_plot | yearly_births_plot | yearly_death_rate_plot)) + 
+  plot_annotation(title = "Finland, Vital statistics, 1749 - 2021",
+                  caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021")
+
+
+
+# How deadly are the different months? ----------------------------------------
+
+px_12ah <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/kuol/statfin_kuol_pxt_12ah.px",
+ query = list("Tapahtumakuukausi" = c("M01", "M02", "M03", "M04", "M05", "M06",
+                                      "M07", "M08", "M09", "M10", "M11", "M12"),
+              "Tiedot"=c("*"), "Vuosi"=c("*")))
+
+df_12ah <- as_tibble(as.data.frame(px_12ah, column.name.type = "text", variable.value.type = "text"))
+
+short_month_names  <- month.abb 
+names(short_month_names) <- unique(df_12ah$Tapahtumakuukausi)
+
+df_12ah <- df_12ah |>
+  mutate(Tapahtumakuukausi = str_replace_all(Tapahtumakuukausi, short_month_names)) |>
+  mutate(Tapahtumakuukausi = as_factor(Tapahtumakuukausi))
+
+avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+# Total
+df_12ah |>
+  group_by(Tapahtumakuukausi) |>
+  summarise(Kuolleet = mean(Kuolleet)) |>
+  mutate(deaths_daily = as.integer(Kuolleet / avg_days_per_month)) |>
+  ggplot(aes(Tapahtumakuukausi, deaths_daily)) +
+  geom_col() +
+  geom_text(aes(label = deaths_daily), vjust = 1.5,
+            color = "white", size = 3.5) +
+  labs(title = "Daily deaths in Finland by month (1945-2021)",
+       subtitle = "Death rates are higher in winter months",
+       y = NULL,
+       x = NULL) -> daily_deaths_month_plot
+
+# Per decade
+df_12ah |>
+  mutate(Vuosi = as.integer(Vuosi)) |> 
+  mutate(decade = Vuosi - Vuosi %% 10) |>
+  filter(decade <= 2010) |>
+  mutate(decade = as.character(paste0(decade, "s")),
+         decade = str_replace_all(decade, "1940s", "1945-1949")) |>
+  group_by(decade, Tapahtumakuukausi) |>
+  summarise(deaths = mean(Kuolleet)) |>
+  mutate(deaths_daily = as.integer(deaths / avg_days_per_month)) |>
+  ggplot(aes(Tapahtumakuukausi, deaths_daily)) +
+  geom_col() +
+  facet_wrap(vars(decade), nrow = 2) +
+  geom_text(aes(label = deaths_daily),
+            color = "white", size = 3.5, angle = 270, hjust = -0.15) +
+  theme(axis.text.x = element_text(angle=90)) +
+  labs(subtitle = "By decade",
+       y = NULL,
+       x = NULL,
+       caption = "source: Tilastokeskus 12ah -- Kuolleet kuukausittain, 1945-2021"
+       ) -> daily_deaths_decade_plot
+
+daily_deaths_month_plot / daily_deaths_decade_plot
+
+
+
+
+# By gender ---------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
 
 
 # Overview of deaths in Finland -------------------------------------------
@@ -234,66 +309,6 @@ deaths_cause |>
 #                 caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
 
 
-# How deadly are the different months? ----------------------------------------
-
-url_1 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/kuol/statfin_kuol_pxt_12ah.px"
-
-query_1 = list("Tapahtumakuukausi" = c("M01", "M02", "M03", "M04", "M05", "M06",
-                                       "M07", "M08", "M09", "M10", "M11", "M12"),
-               "Tiedot"=c("*"),
-               "Vuosi"=c("*"))
-
-px_data_1 <- pxweb_get(url = url_1, query = query_1)
-monthly <- as.data.frame(px_data_1, column.name.type = "text", variable.value.type = "text")
-
-translate_months  <- month.abb 
-names(translate_months) <- unique(monthly$Tapahtumakuukausi) 
-
-
-monthly <- monthly |>
-  as_tibble() |>
-  rename(year = Vuosi, month = Tapahtumakuukausi, deaths = Kuolleet) |>
-  mutate(month = str_replace_all(month, translate_months)) |>
-  mutate(month = as_factor(month))
-
-avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-
-# Total
-monthly |>
-  group_by(month) |>
-  summarise(deaths = mean(deaths)) |>
-  mutate(deaths_daily = as.integer(deaths / avg_days_per_month)) |>
-  ggplot(aes(month, deaths_daily)) +
-  geom_col() +
-  geom_text(aes(label = deaths_daily), vjust = 1.5,
-            color = "white", size = 3.5) +
-  labs(title = "Daily deaths in Finland per month (1945-2021)",
-       subtitle = "Death rates are higher in winter months",
-       y = NULL,
-       x = NULL) -> p1
-
-# Per decade
-monthly |>
-  mutate(year = as.integer(year)) |>
-  mutate(decade = year - year %% 10) |>
-  group_by(decade, month) |>
-  filter(decade <= 2010) |>
-  mutate(decade = as.character(paste0(decade, "s")),
-         decade = str_replace_all(decade, "1940s", "1945-1949")) |>
-  summarise(deaths = mean(deaths)) |>
-  mutate(deaths_daily = as.integer(deaths / avg_days_per_month)) |>
-  ggplot(aes(month, deaths_daily)) +
-  geom_col() +
-  facet_wrap(vars(decade), nrow = 2) +
-  geom_text(aes(label = deaths_daily),
-            color = "white", size = 3.5, angle = 270, hjust = -0.15) +
-  theme(axis.text.x = element_text(angle=90)) +
-  labs(subtitle = "By decade",
-       y = NULL,
-       x = NULL,
-       caption = "source: Tilastokeskus - Kuolleet kuukausittain, 1945-2021") -> p2
-
-p1 / p2
 
 
 # What are the causes of deaths by region? ------------------------------------
