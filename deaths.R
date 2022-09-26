@@ -122,9 +122,176 @@ df_12ah |>
 daily_deaths_month_plot / daily_deaths_decade_plot
 
 
+# Causes per region -----------------------------------------------------------
+
+# For causes of death per region
+px_11bt <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px",
+query = list(
+"Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
+  "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
+"Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
+"Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
+"Tiedot" = c("*")))
+
+df_11bt <- as_tibble(as.data.frame(px_11bt, column.name.type = "text", variable.value.type = "text"))
+
+df_11bt <- df_11bt |>
+  rename(Cause = "Underlying cause of death (time series classification)") |>
+  mutate(Year = as.integer(Year)) |>
+  separate(Region, into = c("ID", "Region"), sep = " ", extra = "merge")
+
+# For population per region
+px_11ra <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/vaerak/statfin_vaerak_pxt_11ra.px",
+query = list(
+"Alue" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
+  "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
+"Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
+"Tiedot" = c("vaesto")))
+
+df_11ra <- as_tibble(as.data.frame(px_11ra, column.name.type = "text", variable.value.type = "text"))
+
+df_11ra <- df_11ra |>
+  mutate(Vuosi = as.integer(Vuosi)) |>
+  rename(Population = "Väestö 31.12.") |>
+  separate(Alue, into = c("ID", "Region_fi"), sep = " ", extra = "merge")
+
+df_cause_region <- df_11bt |>
+  left_join(df_11ra, by = c("ID" = "ID", "Year" = "Vuosi")) |>
+  mutate(Deaths_per_100k = Deaths / Population * 100000) |>
+  group_by(Region, Cause) |>
+  summarise(Deaths_per_100k = mean(Deaths_per_100k), .groups = "drop")
 
 
-# By gender ---------------------------------------------------------------
+
+
+# What are the causes of deaths by region? ------------------------------------
+# source: 11bt -- Deaths by underlying cause of death (time series classification) and region, 1969-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bt.px/
+
+# For population per region
+url_2 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/vaerak/statfin_vaerak_pxt_11ra.px"
+
+regions = c("MK01", "MK02", "MK04", "MK05",
+            "MK06", "MK07", "MK08", "MK09",
+            "MK10", "MK11", "MK12", "MK13",
+            "MK14", "MK15", "MK16", "MK17",
+            "MK18", "MK19", "MK21")
+
+years = c("2016", "2017", "2018", "2019", "2020")
+
+query_2 = list("Alue" = regions,
+               "Tiedot" = c("vaesto"),
+               "Vuosi" = years)
+
+px_data_2 <- pxweb_get(url = url_2, query = query_2)
+population <- as.data.frame(px_data_2, column.name.type = "text", variable.value.type = "text")
+
+
+# For causes of death per region
+url_3 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px"
+
+# For English translations of causes
+url_4 = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px"
+
+query_3 = list("Maakunta" = regions,
+               "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
+               "Vuosi" = years,
+               "Tiedot" = c("*"))
+
+px_data_3 <- pxweb_get(url = url_3, query = query_3)
+px_data_4 <- pxweb_get(url = url_4, query = query_3)
+
+causes <- as_tibble(as.data.frame(px_data_3, column.name.type = "text", variable.value.type = "text"))
+eng_translation <- as.data.frame(px_data_4, column.name.type = "text", variable.value.type = "text")
+
+eng_translation <- eng_translation |>
+  select("Underlying cause of death (time series classification)")
+
+causes <- causes |>
+  bind_cols(eng_translation) |>
+  left_join(population, by = c("Maakunta" = "Alue", "Vuosi" = "Vuosi")) |>
+  mutate(Maakunta = str_remove_all(Maakunta, "MK.. ")) |>
+  rename(region = Maakunta,
+         cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
+         cause_eng = "Underlying cause of death (time series classification)",
+         year = Vuosi, deaths = Kuolleet, population = "Väestö 31.12.") |>
+  mutate(deaths_per_100k = deaths/population * 100000)
+
+causes_summary <- causes |>
+  group_by(region, cause_eng) |>
+  summarise(deaths_per_100k = mean(deaths_per_100k))
+
+municipalities <- get_municipalities(year = 2020, scale = 4500)
+
+municipalities <- municipalities |>
+  group_by(maakunta_name_fi) |>
+  summarise() |>
+  rename(region = maakunta_name_fi)
+
+causes_coord <- municipalities |>
+  left_join(causes_summary, by = "region")
+
+add_linebreak <- function(s1){
+  
+  middle_position = (nchar(s1) -1) / 2
+  
+  second_half = str_sub(s1, middle_position)
+  
+  space_location_second_half = str_locate(second_half, " ") - 1
+  
+  space_location = middle_position + space_location_second_half[[1]]
+  
+  substr(s1, space_location, space_location ) <- "\n"
+  s1
+}
+
+by_cause <- function(cause_1){
+  
+  title_1 = add_linebreak(cause_1)
+  title_2 = "48 Accidental poisonings excl. accidental poisoning\n by alcohol (X40-X44, X46-X49, Y10-Y15)"
+  causes_coord |>
+    filter(cause_eng == cause_1) |>
+    ggplot() + 
+    geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
+    scale_fill_distiller(palette = "Spectral") +
+    labs(subtitle = title_1, fill = NULL) +
+    theme(legend.position = c(0.2, 0.6),
+          legend.background = element_blank())
+}
+
+
+p1 <- by_cause("00-54 Total")
+p2 <- by_cause("04-22 Neoplasms (C00-D48)")
+p3 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
+
+p4 <- by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)")
+p5 <- by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)")
+p6 <- by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)")
+
+p7 <- by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol")
+p8 <- by_cause("42 Land traffic accidents")
+p9 <- by_cause("47 Accidental drownings (W65-W74)")
+
+p10 <- by_cause("50 Suicides (X60-X84, Y870)")
+p11 <- by_cause("51 Assault (X85-Y09, Y871)")
+p12 <- by_cause("54 No death certificate")
+
+((p1 | p2 | p3) /  
+    (p4 | p5 | p6)) + 
+  plot_annotation(title = "Total deaths and diseases related deaths",
+                  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
+                                    "by underlying cause of death and region per 100,000 inhabitants."),
+                  caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
+
+(p7 | p8 | p9) /
+  (p10 | p11 | p12) + 
+  plot_annotation(title = "Alchohol, accidental, suicide related and other deaths",
+                  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
+                                    "by underlying cause of death and region per 100,000 inhabitants."),
+                  caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
+
 
 
 
@@ -309,133 +476,6 @@ deaths_cause |>
 #                 caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
 
 
-
-
-# What are the causes of deaths by region? ------------------------------------
-# source: 11bt -- Deaths by underlying cause of death (time series classification) and region, 1969-2020
-# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bt.px/
-
-# For population per region
-url_2 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/vaerak/statfin_vaerak_pxt_11ra.px"
-
-regions = c("MK01", "MK02", "MK04", "MK05",
-         "MK06", "MK07", "MK08", "MK09",
-         "MK10", "MK11", "MK12", "MK13",
-         "MK14", "MK15", "MK16", "MK17",
-         "MK18", "MK19", "MK21")
-
-years = c("2016", "2017", "2018", "2019", "2020")
-
-query_2 = list("Alue" = regions,
-               "Tiedot" = c("vaesto"),
-               "Vuosi" = years)
-
-px_data_2 <- pxweb_get(url = url_2, query = query_2)
-population <- as.data.frame(px_data_2, column.name.type = "text", variable.value.type = "text")
-
-
-# For causes of death per region
-url_3 = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px"
-
-# For English translations of causes
-url_4 = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px"
-
-query_3 = list("Maakunta" = regions,
-               "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
-               "Vuosi" = years,
-               "Tiedot" = c("*"))
-
-px_data_3 <- pxweb_get(url = url_3, query = query_3)
-px_data_4 <- pxweb_get(url = url_4, query = query_3)
-
-causes <- as_tibble(as.data.frame(px_data_3, column.name.type = "text", variable.value.type = "text"))
-eng_translation <- as.data.frame(px_data_4, column.name.type = "text", variable.value.type = "text")
-
-eng_translation <- eng_translation |>
-  select("Underlying cause of death (time series classification)")
-
-causes <- causes |>
-  bind_cols(eng_translation) |>
-  left_join(population, by = c("Maakunta" = "Alue", "Vuosi" = "Vuosi")) |>
-  mutate(Maakunta = str_remove_all(Maakunta, "MK.. ")) |>
-  rename(region = Maakunta,
-         cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
-         cause_eng = "Underlying cause of death (time series classification)",
-         year = Vuosi, deaths = Kuolleet, population = "Väestö 31.12.") |>
-  mutate(deaths_per_100k = deaths/population * 100000)
-
-causes_summary <- causes |>
-  group_by(region, cause_eng) |>
-  summarise(deaths_per_100k = mean(deaths_per_100k))
-
-municipalities <- get_municipalities(year = 2020, scale = 4500)
-
-municipalities <- municipalities |>
-  group_by(maakunta_name_fi) |>
-  summarise() |>
-  rename(region = maakunta_name_fi)
-
-causes_coord <- municipalities |>
-  left_join(causes_summary, by = "region")
-
-add_linebreak <- function(s1){
-  
-  middle_position = (nchar(s1) -1) / 2
-  
-  second_half = str_sub(s1, middle_position)
-  
-  space_location_second_half = str_locate(second_half, " ") - 1
-  
-  space_location = middle_position + space_location_second_half[[1]]
-  
-  substr(s1, space_location, space_location ) <- "\n"
-  s1
-}
-
-by_cause <- function(cause_1){
-  
-    title_1 = add_linebreak(cause_1)
-    title_2 = "48 Accidental poisonings excl. accidental poisoning\n by alcohol (X40-X44, X46-X49, Y10-Y15)"
-    causes_coord |>
-      filter(cause_eng == cause_1) |>
-      ggplot() + 
-      geom_sf(aes(geometry = geom, fill = deaths_per_100k)) +
-      scale_fill_distiller(palette = "Spectral") +
-      labs(subtitle = title_1, fill = NULL) +
-      theme(legend.position = c(0.2, 0.6),
-            legend.background = element_blank())
-}
-
-
-p1 <- by_cause("00-54 Total")
-p2 <- by_cause("04-22 Neoplasms (C00-D48)")
-p3 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
-
-p4 <- by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)")
-p5 <- by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)")
-p6 <- by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)")
-
-p7 <- by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol")
-p8 <- by_cause("42 Land traffic accidents")
-p9 <- by_cause("47 Accidental drownings (W65-W74)")
-
-p10 <- by_cause("50 Suicides (X60-X84, Y870)")
-p11 <- by_cause("51 Assault (X85-Y09, Y871)")
-p12 <- by_cause("54 No death certificate")
-
-((p1 | p2 | p3) /  
-(p4 | p5 | p6)) + 
-  plot_annotation(title = "Total deaths and diseases related deaths",
-  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
-            "by underlying cause of death and region per 100,000 inhabitants."),
-  caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
-
-(p7 | p8 | p9) /
-(p10 | p11 | p12) + 
-  plot_annotation(title = "Alchohol, accidental, suicide related and other deaths",
-  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
-            "by underlying cause of death and region per 100,000 inhabitants."),
-  caption = "source: Tilastokeskus 11bt - Deaths by underlying cause")
 
 
 
