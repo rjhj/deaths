@@ -233,6 +233,31 @@ p12 <- by_cause("54 No death certificate")
                   caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
 
 
+# Life expectancy at birth by Year and Sex -----------------------------------
+
+px_12am <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
+query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
+
+df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
+
+df_12am <- df_12am |>
+  rename(Life_exp = "Life expectancy at birth, years") |>
+  mutate(Year = str_sub(Year, 1, 4)) |>
+  mutate(Year = as.integer(Year),
+         Sex = as_factor(Sex))
+
+ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
+  geom_line(size = 1.1) +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.background = element_blank()) +
+  labs(title = "Life expectancy (years) at birth by sex, 1751-2021",
+       y = NULL, x = NULL,
+       caption = "source: Tilastokeskus 12am -- Life expectancy at birth by sex, 1751-2021")
+
+
+
 # Overview of deaths in Finland -------------------------------------------
 
 
