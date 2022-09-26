@@ -1,0 +1,6 @@
+---
+title: "Deaths in Finland"
+author: "rjhj"
+date: "`r Sys.Date()`"
+output: html_document
+---

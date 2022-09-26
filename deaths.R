@@ -9,7 +9,7 @@ library(lubridate)
 # tell the purpose of this work and few important stats
 
 
-# Yearly overview --------------------------------------------------- 
+# Yearly deaths --------------------------------------------------- 
 px_12at <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
           query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
@@ -122,7 +122,7 @@ df_12ah |>
 daily_deaths_month_plot / daily_deaths_decade_plot
 
 
-# Causes per region -----------------------------------------------------------
+# Causes of death per region --------------------------------------------------
 
 # For causes of death per region
 px_11bt <- pxweb_get(url = 
@@ -233,7 +233,7 @@ p12 <- by_cause("54 No death certificate")
                   caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
 
 
-# Life expectancy at birth by Year and Sex -----------------------------------
+# Life expectancy at birth---------------- -----------------------------------
 
 px_12am <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
@@ -242,7 +242,7 @@ query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
 
 df_12am <- df_12am |>
-  rename(Life_exp = "Life expectancy at birth, years") |>
+  rename(Life_exp = "Life expectancy in Finland at birth, years") |>
   mutate(Year = str_sub(Year, 1, 4)) |>
   mutate(Year = as.integer(Year),
          Sex = as_factor(Sex))
