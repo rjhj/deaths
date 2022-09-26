@@ -9,7 +9,32 @@ library(lubridate)
 # tell the purpose of this work and few important stats
 
 
+# Yearly deaths, births and population? --------------------------------------- 
+# source: statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12at.px/table/tableViewLayout1/
+tilastokeskus_12at <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
+          query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*"))) |>
+  as.data.frame(column.name.type = "text", variable.value.type = "text") |>
+  as_tibble()
+
+tilastokeskus_12at <- tilastokeskus_12at |>
+  rename(Live_births = "Live births") |>
+  mutate(Year = as.integer(Year))
+
+
+
+
+
 # Overview of deaths in Finland -------------------------------------------
+
+
+
+
+
+
+
+
+
 
 url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/vaerak/statfin_vaerak_pxt_11rb.px"
 query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("vaesto"), "Vuosi"=c("*"))
