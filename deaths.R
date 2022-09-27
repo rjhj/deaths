@@ -25,18 +25,18 @@ df_12at <- df_12at |>
 labels = tribble(
   ~Year, ~Deaths, ~Label,
   1868,  137720, "Finnish famine (1866–1868)",
-  1918,  95102,  "Civil War (1918)",
-  1948,  71846,  "Winter, Continuation &\nLapland Wars (1939–45)",
-  1833,  63738,  "Smallpox, dysentery\n& influenza (1833)",
-  1806,  53942,  "Finnish War (1808-09)",
-  2008,  52659,  "In 2021 there were\n57,659 deaths in Finland,\nhighest since 1940s"
+  1918,  92102,  "Civil War\n(1918)",
+  1948,  61846,  "Winter,\nContinuation &\nLapland Wars\n(1939–45)",
+  1833,  55038,  "Smallpox,\ndysentery\n& influenza\n(1833)",
+  1806,  50942,  "Finnish War\n(1808-09)",
+  2008,  46659,  "In 2021 there were\n57,659 deaths in\nFinland, highest\nsince 1940s"
 )
 
 ggplot(df_12at, aes(Year, Deaths)) +
   geom_line(size = 0.3, color = "#505085") +
   scale_x_continuous(breaks = seq(1750, 2020, 25)) +
   scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
-  geom_text(aes(label=Label), size = 1, vjust = -0.5, data=labels) +
+  geom_text(aes(label=Label), size = 1.4, vjust = -0.5, data=labels) +
   labs(subtitle = "Deaths",
        y = NULL,
        x = NULL) +
