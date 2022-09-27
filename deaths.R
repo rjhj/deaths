@@ -33,34 +33,49 @@ labels = tribble(
 )
 
 ggplot(df_12at, aes(Year, Deaths)) +
-  geom_line(size = 1.1) +
+  geom_line(size = 0.5) +
   scale_x_continuous(breaks = seq(1750, 2020, 25)) +
   scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
-  geom_text(aes(label=Label), size=3.5, vjust = -0.5, data=labels) +
+  geom_text(aes(label=Label), size = 1, vjust = -0.5, data=labels) +
   labs(subtitle = "Deaths",
        y = NULL,
-       x = NULL) -> yearly_deaths_plot
+       x = NULL) +
+  theme_void() +
+  theme(axis.text = element_text(size = 3.5),
+        title = element_text(size = 5)
+        ) -> yearly_deaths_plot
 
 yearly_plot <- function(df, y_stat, subtitle) {
   ggplot(df, aes(Year, {{y_stat}})) +
-    geom_line(size = 1.1) +
+    geom_line(size = 0.3) +
     scale_x_continuous(breaks = seq(1750, 2020, 50)) +
     scale_y_continuous(labels = scales::comma) +
     labs(subtitle = subtitle,
          y = NULL,
-         x = NULL)   
+         x = NULL) +
+    theme(text = element_text(size = 4))
 }
 
 yearly_population_plot <- yearly_plot(df_12at, Population, "Population")
 yearly_births_plot <- yearly_plot(df_12at, Live_births, "Live births")
 yearly_death_rate_plot <- yearly_plot(df_12at, Death_rate, "Deaths / 100,000 people")
 
-plot_yearly <- (yearly_deaths_plot /
-(yearly_population_plot | yearly_births_plot | yearly_death_rate_plot)) + 
-  plot_annotation(title = "Deaths & population statistics, Finland, 1749 - 2021",
-                  caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021")
+layout <- "
+AAA
+AAA
+BCD
+"
 
-ggsave("images//plot_yearly.png", plot_yearly, device = "png", scale = 1.8)
+plot_yearly <- (yearly_deaths_plot + yearly_population_plot +
+  yearly_births_plot + yearly_death_rate_plot +
+    plot_layout(design = layout))+
+  plot_annotation(subtitle = "Death & population statistics, Finland, 1749 - 2021",
+                  caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021",
+                  theme = theme(plot.subtitle = element_text(size = 6),
+                                plot.caption = element_text(size = 3)))
+
+ggsave("images//plot_yearly.png", plot_yearly, device = "png",
+       width = 8, height = 8, units = c("cm"))
 
 # How deadly are the different months? ----------------------------------------
 
@@ -190,7 +205,14 @@ add_linebreak <- function(s1){
 
 by_cause <- function(cause_1){
   
-  title_1 = add_linebreak(cause_1)
+  title_1 <- str_remove(cause_1, " \\(.+\\)" )
+  
+  print(title_1)
+  
+  if(nchar(title_1) > 30) {
+    title_1 = add_linebreak(title_1)
+  }
+  
   df_cause_region |>
     filter(Cause == cause_1) |>
     ggplot() + 
@@ -198,7 +220,8 @@ by_cause <- function(cause_1){
     scale_fill_distiller(palette = "Spectral") +
     labs(subtitle = title_1, fill = NULL) +
     theme(legend.position = c(0.2, 0.6),
-          legend.background = element_blank())
+          legend.background = element_blank(),
+          plot.subtitle = element_text(size = 8))
 }
 
 p1 <- by_cause("00-54 Total")
@@ -218,21 +241,23 @@ p11 <- by_cause("51 Assault (X85-Y09, Y871)")
 p12 <- by_cause("54 No death certificate")
 
 plot_regions_1 <- ((p1 | p2 | p3) /  
-    (p4 | p5 | p6)) + 
+                     (p4 | p5 | p6)) + 
   plot_annotation(title = "Total and diseases related deaths",
                   subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
                                     "by underlying cause of death and region per 100,000 inhabitants."),
-                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
+                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause",
+                  theme = theme(plot.subtitle = element_text(size = 10)))
 
 plot_regions_2 <- (p7 | p8 | p9) /
-  (p10 | p11 | p12) + 
+  (p10 | p11 | p12) +
   plot_annotation(title = "Alchohol, accidental, suicide and other deaths",
                   subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
                                     "by underlying cause of death and region per 100,000 inhabitants."),
-                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
+                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause",
+                  theme = theme(plot.subtitle = element_text(size = 10)))
 
-ggsave("images//plot_regions_1.png", plot_regions_1, device = "png", scale = 1.8)
-ggsave("images//plot_regions_2.png", plot_regions_2, device = "png", scale = 1.8)
+ggsave("images//plot_regions_1.png", plot_regions_1, device = "png", scale = 1.0)
+ggsave("images//plot_regions_2.png", plot_regions_2, device = "png", scale = 1.0)
 
 # Life expectancy at birth---------------- -----------------------------------
 
