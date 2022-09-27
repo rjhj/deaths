@@ -29,11 +29,11 @@ labels = tribble(
   1948,  71846,  "Winter, Continuation &\nLapland Wars (1939–45)",
   1833,  63738,  "Smallpox, dysentery\n& influenza (1833)",
   1806,  53942,  "Finnish War (1808-09)",
-  2005,  52659,  "In 2021 there were\n57,659 deaths in Finland,\nhighest since 1940s"
+  2008,  52659,  "In 2021 there were\n57,659 deaths in Finland,\nhighest since 1940s"
 )
 
 ggplot(df_12at, aes(Year, Deaths)) +
-  geom_line(size = 0.5) +
+  geom_line(size = 0.3, color = "#505085") +
   scale_x_continuous(breaks = seq(1750, 2020, 25)) +
   scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
   geom_text(aes(label=Label), size = 1, vjust = -0.5, data=labels) +
@@ -47,12 +47,13 @@ ggplot(df_12at, aes(Year, Deaths)) +
 
 yearly_plot <- function(df, y_stat, subtitle) {
   ggplot(df, aes(Year, {{y_stat}})) +
-    geom_line(size = 0.3) +
+    geom_line(size = 0.3, color = "#505085") +
     scale_x_continuous(breaks = seq(1750, 2020, 50)) +
     scale_y_continuous(labels = scales::comma) +
     labs(subtitle = subtitle,
          y = NULL,
          x = NULL) +
+    theme_minimal()+
     theme(text = element_text(size = 4))
 }
 
