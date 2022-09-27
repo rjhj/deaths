@@ -25,7 +25,7 @@ library(scales)
 library(lubridate)
 ```
 
-## How many people die yearly?
+## Yearly deaths in Finland
 
 ```{r}
 px_12at <- pxweb_get(url = 
@@ -43,47 +43,63 @@ df_12at <- df_12at |>
 labels = tribble(
   ~Year, ~Deaths, ~Label,
   1868,  137720, "Finnish famine (1866–1868)",
-  1918,  95102,  "Civil War (1918)",
-  1948,  71846,  "Winter, Continuation &\nLapland Wars (1939–45)",
-  1833,  63738,  "Smallpox, dysentery\n& influenza (1833)",
-  1806,  53942,  "Finnish War (1808-09)",
-  2005,  52659,  "In 2021 there were\n57,659 deaths in Finland,\nhighest since 1940s"
+  1918,  92102,  "Civil War\n(1918)",
+  1948,  61846,  "Winter,\nContinuation &\nLapland Wars\n(1939–45)",
+  1833,  55038,  "Smallpox,\ndysentery\n& influenza\n(1833)",
+  1806,  50942,  "Finnish War\n(1808-09)",
+  2008,  46659,  "In 2021 there were\n57,659 deaths in\nFinland, highest\nsince 1940s"
 )
 
 ggplot(df_12at, aes(Year, Deaths)) +
-  geom_line(size = 1.1) +
+  geom_line(size = 0.3, color = "#505085") +
   scale_x_continuous(breaks = seq(1750, 2020, 25)) +
   scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
-  geom_text(aes(label=Label), size=3.5, vjust = -0.5, data=labels) +
+  geom_text(aes(label=Label), size = 1.4, vjust = -0.5, data=labels) +
   labs(subtitle = "Deaths",
        y = NULL,
-       x = NULL) -> yearly_deaths_plot
+       x = NULL) +
+  theme_void() +
+  theme(axis.text = element_text(size = 3.5),
+        title = element_text(size = 5)
+        ) -> yearly_deaths_plot
 
 yearly_plot <- function(df, y_stat, subtitle) {
   ggplot(df, aes(Year, {{y_stat}})) +
-    geom_line(size = 1.1) +
+    geom_line(size = 0.3, color = "#505085") +
     scale_x_continuous(breaks = seq(1750, 2020, 50)) +
     scale_y_continuous(labels = scales::comma) +
     labs(subtitle = subtitle,
          y = NULL,
-         x = NULL)   
+         x = NULL) +
+    theme_minimal()+
+    theme(text = element_text(size = 4))
 }
 
 yearly_population_plot <- yearly_plot(df_12at, Population, "Population")
 yearly_births_plot <- yearly_plot(df_12at, Live_births, "Live births")
 yearly_death_rate_plot <- yearly_plot(df_12at, Death_rate, "Deaths / 100,000 people")
 
-plot_yearly <- (yearly_deaths_plot /
-(yearly_population_plot | yearly_births_plot | yearly_death_rate_plot)) + 
-  plot_annotation(title = "Deaths & population statistics, Finland, 1749 - 2021",
-                  caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021")
+layout <- "
+AAA
+AAA
+BCD
+"
 
-ggsave("images//plot_yearly.png", plot_yearly, device = "png", scale = 1.8)
+plot_yearly <- (yearly_deaths_plot + yearly_population_plot +
+  yearly_births_plot + yearly_death_rate_plot +
+    plot_layout(design = layout))+
+  plot_annotation(subtitle = "Yearly deaths, population and births, Finland, 1749 - 2021",
+                  caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021",
+                  theme = theme(plot.subtitle = element_text(size = 6),
+                                plot.caption = element_text(size = 3)))
+
+ggsave("images//plot_yearly.png", plot_yearly, device = "png",
+       width = 8, height = 8, units = c("cm"))
 ```
 
 ![](images/plot_yearly.png)
 
-## Which month has the highest daily death rate?
+## Which months have the highest daily death rates?
 
 ```{r}
 px_12ah <- pxweb_get(url = 
@@ -103,7 +119,6 @@ df_12ah <- df_12ah |>
 
 avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
-# Total
 df_12ah |>
   group_by(Tapahtumakuukausi) |>
   summarise(Kuolleet = mean(Kuolleet)) |>
@@ -111,13 +126,13 @@ df_12ah |>
   ggplot(aes(Tapahtumakuukausi, deaths_daily)) +
   geom_col() +
   geom_text(aes(label = deaths_daily), vjust = 1.5,
-            color = "white", size = 3.5) +
+            color = "white", size = 2.5) +
+  theme_bw(base_size = 6) +
   labs(title = "Daily deaths in Finland by month (1945-2021)",
        subtitle = "Death rates are higher in winter months",
        y = NULL,
        x = NULL) -> daily_deaths_month_plot
 
-# Per decade
 df_12ah |>
   mutate(Vuosi = as.integer(Vuosi)) |> 
   mutate(decade = Vuosi - Vuosi %% 10) |>
@@ -129,10 +144,11 @@ df_12ah |>
   mutate(deaths_daily = as.integer(deaths / avg_days_per_month)) |>
   ggplot(aes(Tapahtumakuukausi, deaths_daily)) +
   geom_col() +
+  theme_bw(base_size = 4) +
   facet_wrap(vars(decade), nrow = 2) +
   geom_text(aes(label = deaths_daily),
-            color = "white", size = 3.5, angle = 270, hjust = -0.15) +
-  theme(axis.text.x = element_text(angle=90)) +
+            color = "white", size = 1.2, angle = 270, hjust = -0.1) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.15)) +
   labs(subtitle = "By decade",
        y = NULL,
        x = NULL,
@@ -141,7 +157,8 @@ df_12ah |>
 
 plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot
 
-ggsave("images//plot_months.png", plot_months, device = "png", scale = 1.8)
+ggsave(filename = "images//plot_months.png",
+       width = 8, height = 8, dpi = 300, units = "cm", device='png')
 ```
 
 ![](images/plot_months.png)

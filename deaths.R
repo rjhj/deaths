@@ -70,7 +70,7 @@ BCD
 plot_yearly <- (yearly_deaths_plot + yearly_population_plot +
   yearly_births_plot + yearly_death_rate_plot +
     plot_layout(design = layout))+
-  plot_annotation(subtitle = "Death & population statistics, Finland, 1749 - 2021",
+  plot_annotation(subtitle = "Yearly deaths, population and births in Finland, 1749 - 2021",
                   caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021",
                   theme = theme(plot.subtitle = element_text(size = 6),
                                 plot.caption = element_text(size = 3)))
@@ -78,7 +78,7 @@ plot_yearly <- (yearly_deaths_plot + yearly_population_plot +
 ggsave("images//plot_yearly.png", plot_yearly, device = "png",
        width = 8, height = 8, units = c("cm"))
 
-# How deadly are the different months? ----------------------------------------
+# Which months have the highest daily death rates? ----------------------------
 
 px_12ah <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/kuol/statfin_kuol_pxt_12ah.px",
@@ -97,7 +97,6 @@ df_12ah <- df_12ah |>
 
 avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
-# Total
 df_12ah |>
   group_by(Tapahtumakuukausi) |>
   summarise(Kuolleet = mean(Kuolleet)) |>
@@ -105,13 +104,13 @@ df_12ah |>
   ggplot(aes(Tapahtumakuukausi, deaths_daily)) +
   geom_col() +
   geom_text(aes(label = deaths_daily), vjust = 1.5,
-            color = "white", size = 3.5) +
+            color = "white", size = 2.5) +
+  theme_bw(base_size = 6) +
   labs(title = "Daily deaths in Finland by month (1945-2021)",
        subtitle = "Death rates are higher in winter months",
        y = NULL,
        x = NULL) -> daily_deaths_month_plot
 
-# Per decade
 df_12ah |>
   mutate(Vuosi = as.integer(Vuosi)) |> 
   mutate(decade = Vuosi - Vuosi %% 10) |>
@@ -123,10 +122,11 @@ df_12ah |>
   mutate(deaths_daily = as.integer(deaths / avg_days_per_month)) |>
   ggplot(aes(Tapahtumakuukausi, deaths_daily)) +
   geom_col() +
+  theme_bw(base_size = 4) +
   facet_wrap(vars(decade), nrow = 2) +
   geom_text(aes(label = deaths_daily),
-            color = "white", size = 3.5, angle = 270, hjust = -0.15) +
-  theme(axis.text.x = element_text(angle=90)) +
+            color = "white", size = 1.2, angle = 270, hjust = -0.1) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.15)) +
   labs(subtitle = "By decade",
        y = NULL,
        x = NULL,
@@ -135,8 +135,8 @@ df_12ah |>
 
 plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot
 
-ggsave("images//plot_months.png", plot_months, device = "png", scale = 1.8)
-
+ggsave(filename = "images//plot_months.png",
+       width = 8, height = 8, dpi = 300, units = "cm", device='png')
 
 # Causes of death per region --------------------------------------------------
 
