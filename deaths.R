@@ -5,80 +5,7 @@ library(pxweb)
 library(scales)
 library(lubridate)
 
-titles_theme = theme(plot.title = element_text(size = 6),
-                     plot.subtitle = element_text(size = 5),
-                     plot.caption = element_text(size = 3))
-
-# Yearly deaths --------------------------------------------------- 
-px_12at <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
-          query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
-  
-df_12at <- as_tibble(as.data.frame(px_12at, column.name.type = "text", variable.value.type = "text"))
-
-df_12at <- df_12at |>
-  rename(Live_births = "Live births") |>
-  mutate(Year = as.integer(Year),
-         Death_rate = Deaths / Population * 100000)
-
-# Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
-labels = tribble(
-  ~Year, ~Deaths, ~Label,
-  1868,  137720, "Finnish famine (1866–1868)",
-  1918,  92102,  "Civil War\n(1918)",
-  1948,  61846,  "Winter,\nContinuation &\nLapland Wars\n(1939–45)",
-  1833,  55038,  "Smallpox,\ndysentery\n& influenza\n(1833)",
-  1806,  50942,  "Finnish War\n(1808-09)",
-  2008,  46659,  "In 2021 there were\n57,659 deaths in\nFinland, highest\nsince 1940s"
-)
-
-ggplot(df_12at, aes(Year, Deaths)) +
-  geom_line(size = 0.3, color = "#505085") +
-  scale_x_continuous(breaks = seq(1750, 2020, 25)) +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
-  geom_text(aes(label=Label), size = 1.4, vjust = -0.5, data=labels) +
-  labs(subtitle = "Deaths",
-       y = NULL,
-       x = NULL) +
-  theme_void() +
-  theme(axis.text = element_text(size = 3.5),
-        title = element_text(size = 5)
-        ) -> yearly_deaths_plot
-
-yearly_plot <- function(df, y_stat, subtitle) {
-  ggplot(df, aes(Year, {{y_stat}})) +
-    geom_line(size = 0.3, color = "#505085") +
-    scale_x_continuous(breaks = seq(1750, 2020, 50)) +
-    scale_y_continuous(labels = scales::comma) +
-    labs(subtitle = subtitle,
-         y = NULL,
-         x = NULL) +
-    theme_minimal()+
-    theme(text = element_text(size = 4))
-}
-
-yearly_population_plot <- yearly_plot(df_12at, Population, "Population")
-yearly_births_plot <- yearly_plot(df_12at, Live_births, "Live births")
-yearly_death_rate_plot <- yearly_plot(df_12at, Death_rate, "Deaths / 100,000 people")
-
-layout <- "
-AAA
-AAA
-BCD
-"
-
-plot_yearly <- (yearly_deaths_plot + yearly_population_plot +
-  yearly_births_plot + yearly_death_rate_plot +
-    plot_layout(design = layout)) +
-  plot_annotation(title = "Yearly deaths, population and births in Finland, 1749 - 2021",
-                  caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021",
-                  theme = titles_theme)
-
-ggsave("images//plot_yearly.png", plot_yearly, device = "png",
-       width = 3.15, height = 3.15, units = c("in"))
-
-
-# Yearly deaths2 --------------------------------------------------- 
+# Which years had the most deaths? -------------------------------------------- 
 px_12at <- pxweb_get(url = 
                        "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
                      query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
@@ -142,7 +69,7 @@ plot_yearly <- (yearly_deaths_plot + yearly_population_plot +
 ggsave("images//plot_yearly.png", plot_yearly, device = "png", dpi = 130)
 
 
-# Which months have the highest daily death rates? ----------------------------
+# Which months have the highest deaths? -------------------------------------
 
 px_12ah <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/kuol/statfin_kuol_pxt_12ah.px",
@@ -168,8 +95,8 @@ df_12ah |>
   ggplot(aes(Tapahtumakuukausi, deaths_daily)) +
   geom_col() +
   geom_text(aes(label = deaths_daily), vjust = 1.5,
-            color = "white", size = 2.5) +
-  theme_bw(base_size = 6) +
+            color = "white", size = 3) +
+  theme_bw() +
   labs(y = NULL,
        x = NULL) -> daily_deaths_month_plot
 
@@ -184,10 +111,10 @@ df_12ah |>
   mutate(deaths_daily = as.integer(deaths / avg_days_per_month)) |>
   ggplot(aes(Tapahtumakuukausi, deaths_daily)) +
   geom_col() +
-  theme_bw(base_size = 4) +
+  theme_bw() +
   facet_wrap(vars(decade), nrow = 2) +
   geom_text(aes(label = deaths_daily),
-            color = "white", size = 1.2, angle = 270, hjust = -0.1) +
+            color = "white", size = 2.2, angle = 270, hjust = -0.1) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.15)) +
   labs(subtitle = "By decade",
        y = NULL,
@@ -197,11 +124,9 @@ df_12ah |>
 
 plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot +
   plot_annotation(title = "Daily deaths in Finland by month (1945-2021)",
-                  subtitle = "Death rates are higher in winter months",
-                  theme = titles_theme)
+                  subtitle = "Death rates are higher in winter months")
 
-ggsave("images//plot_months.png", plot_months, device = "png",
-       width = 3.15, height = 3.15, units = c("in"))
+ggsave("images//plot_months.png", plot_months, device = "png", dpi = 130)
 
 
 # Causes of death per region --------------------------------------------------
@@ -322,7 +247,7 @@ px_12am <- pxweb_get(url =
 query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 
 df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
-names(df_12am)
+
 df_12am <- df_12am |>
   rename(Life_exp = "Life expectancy at birth, years") |>
   mutate(Year = str_sub(Year, 1, 4)) |>
@@ -334,11 +259,39 @@ ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
   scale_colour_hue(direction = -1) +
   theme(legend.position = c(0.2, 0.81),
         legend.background = element_blank(),
-        plot.title = element_text(hjust = 0.06),) +
-  labs(title = "By year (1751-2021)",
-       y = NULL, x = NULL,
+        plot.title = element_text(hjust = 0.06),
+        plot.tag.position = c(0.2, 1)) +
+  labs(subtitle = " ", y = NULL, x = NULL,
        caption = "source: Tilastokeskus 12am -- Life expectancy at birth by sex, 1751-2021"
        ) -> life_exp_plot
+
+# Survivors of 100k born alive
+
+px_12ap <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ap.px",
+query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"),
+              "Tiedot" = c("elo100000synt")))
+
+df_12ap <- as_tibble(as.data.frame(px_12ap, column.name.type = "text", variable.value.type = "text"))
+
+df_12ap |>
+  rename(survivors_100k = "Survivors of 100,000 born alive") |>
+  mutate(Sex = as_factor(Sex),
+         Year = as.integer(Year),
+         Age = as.integer(Age)) |>
+  group_by(Sex, Age) |>
+  summarise(survivors_100k = mean(survivors_100k)) |>
+  ggplot(aes(Age, survivors_100k, color = Sex)) +
+  geom_line(size = 1.1) +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = c(0.2, 0.3),
+        legend.background = element_blank(),
+        plot.title = element_text(hjust = 0.06),
+        plot.tag.position = c(0.2, 1)) +
+  labs(subtitle = " ", y = NULL, x = NULL,
+       caption = "source: Tilastokeskus 12ap -- Life table by age and sex, 1986-2020"
+  )
+
 
 # Life expectancy by region
 px_12an <- pxweb_get(url = 
@@ -364,8 +317,7 @@ df_life_region |>
   ggplot() + 
   geom_sf(aes(geometry = geom, fill = Life_exp)) +
   scale_fill_distiller(palette = "Spectral", direction = 1) +
-  labs(title = "By region (2018-2020)",
-       subtitle = "         Females", fill = NULL) +
+  labs(subtitle = "         Females", fill = NULL) +
   theme(legend.position = c(0.2, 0.6),
         legend.background = element_blank(),
         legend.key.size = unit(0.15, "in"),
@@ -391,11 +343,34 @@ df_life_region |>
 plot_life_exp <- (life_exp_plot) /
   (life_exp_region_f_plot + life_exp_region_m_plot) + 
   plot_annotation(title = "Life expectancy (years) at birth by sex",
-  caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region") +
-  plot_layout(heights = c(1.5, 1.9))
+  caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region",
+  tag_levels = list(c('By year (1751-2021)', 'By region (2018-2020)'))) +
+  plot_layout(heights = c(1.5, 1.9)) &
+  theme(plot.tag.position = c(0, 1),
+        plot.tag = element_text(size = 8, hjust = 0, vjust = 0))
 
-ggsave("images//plot_life_exp.png", plot_life_exp, device = "png", units = c("in"),
-       dpi = 150)
+
+plot_life_exp <- (life_exp_region_f_plot | life_exp_region_m_plot) + 
+  plot_annotation(title = "Life expectancy (years) at birth by sex",
+                  caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region") +
+  plot_layout(heights = c(1.5, 1.9))
+# 
+# layout <- "
+# ABC
+# "
+# 
+# plot_life_exp <- (life_exp_plot + life_exp_plot +
+#   life_exp_region_f_plot + life_exp_region_m_plot +
+#     plot_layout(design = layout)) + 
+#   plot_annotation(title = "Life expectancy (years) at birth by sex",
+#                   caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region",
+#                   tag_levels = list(c('By year (1751-2021)', 'By region (2018-2020)'))) +
+#   plot_layout(heights = c(1.5, 1.9)) &
+#   theme(plot.tag.position = c(0, 1),
+#         plot.tag = element_text(size = 8, hjust = 0, vjust = 0))
+
+
+ggsave("images//plot_life_exp.png", plot_life_exp, device = "png", dpi = 130)
 
 # Overview of deaths in Finland -------------------------------------------
 
