@@ -5,9 +5,9 @@ library(pxweb)
 library(scales)
 library(lubridate)
 
-# Little summary here:
-# tell the purpose of this work and few important stats
-
+titles_theme = theme(plot.title = element_text(size = 6),
+                     plot.subtitle = element_text(size = 5),
+                     plot.caption = element_text(size = 3))
 
 # Yearly deaths --------------------------------------------------- 
 px_12at <- pxweb_get(url = 
@@ -69,14 +69,78 @@ BCD
 
 plot_yearly <- (yearly_deaths_plot + yearly_population_plot +
   yearly_births_plot + yearly_death_rate_plot +
-    plot_layout(design = layout))+
-  plot_annotation(subtitle = "Yearly deaths, population and births in Finland, 1749 - 2021",
+    plot_layout(design = layout)) +
+  plot_annotation(title = "Yearly deaths, population and births in Finland, 1749 - 2021",
                   caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021",
-                  theme = theme(plot.subtitle = element_text(size = 6),
-                                plot.caption = element_text(size = 3)))
+                  theme = titles_theme)
 
 ggsave("images//plot_yearly.png", plot_yearly, device = "png",
-       width = 8, height = 8, units = c("cm"))
+       width = 3.15, height = 3.15, units = c("in"))
+
+
+# Yearly deaths2 --------------------------------------------------- 
+px_12at <- pxweb_get(url = 
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
+                     query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
+
+df_12at <- as_tibble(as.data.frame(px_12at, column.name.type = "text", variable.value.type = "text"))
+
+df_12at <- df_12at |>
+  rename(Live_births = "Live births") |>
+  mutate(Year = as.integer(Year),
+         Death_rate = Deaths / Population * 100000)
+
+# Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
+labels = tribble(
+  ~Year, ~Deaths, ~Label,
+  1868,  137720, "Finnish famine (1866–1868)",
+  1918,  92102,  "Civil War\n(1918)",
+  1948,  61846,  "Winter,\nContinuation &\nLapland Wars\n(1939–45)",
+  1833,  55038,  "Smallpox,\ndysentery\n& influenza\n(1833)",
+  1806,  50942,  "Finnish War\n(1808-09)",
+  2008,  46659,  "In 2021 there were\n57,659 deaths in\nFinland, highest\nsince 1940s"
+)
+
+ggplot(df_12at, aes(Year, Deaths)) +
+  geom_line(color = "#505085") +
+  scale_x_continuous(breaks = seq(1750, 2020, 25)) +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
+  geom_text(aes(label=Label), size = 3.3, vjust = -0.5, data=labels) +
+  labs(subtitle = "Deaths",
+       y = NULL,
+       x = NULL) +
+  theme_minimal() -> yearly_deaths_plot
+
+yearly_plot <- function(df, y_stat, subtitle) {
+  ggplot(df, aes(Year, {{y_stat}})) +
+    geom_line(color = "#505085") +
+    scale_x_continuous(breaks = seq(1750, 2020, 50)) +
+    scale_y_continuous(labels = scales::comma) +
+    labs(subtitle = subtitle,
+         y = NULL,
+         x = NULL) +
+    theme_minimal() +
+    theme(text = element_text(size = 9))
+}
+
+yearly_population_plot <- yearly_plot(df_12at, Population, "Population")
+yearly_births_plot <- yearly_plot(df_12at, Live_births, "Live births")
+yearly_death_rate_plot <- yearly_plot(df_12at, Death_rate, "Deaths / 100,000 people")
+
+layout <- "
+AAA
+AAA
+BCD
+"
+
+plot_yearly <- (yearly_deaths_plot + yearly_population_plot +
+                  yearly_births_plot + yearly_death_rate_plot +
+                  plot_layout(design = layout)) +
+  plot_annotation(title = "Yearly deaths, population and births in Finland, 1749 - 2021",
+                  caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021")
+
+ggsave("images//plot_yearly.png", plot_yearly, device = "png", dpi = 130)
+
 
 # Which months have the highest daily death rates? ----------------------------
 
@@ -106,9 +170,7 @@ df_12ah |>
   geom_text(aes(label = deaths_daily), vjust = 1.5,
             color = "white", size = 2.5) +
   theme_bw(base_size = 6) +
-  labs(title = "Daily deaths in Finland by month (1945-2021)",
-       subtitle = "Death rates are higher in winter months",
-       y = NULL,
+  labs(y = NULL,
        x = NULL) -> daily_deaths_month_plot
 
 df_12ah |>
@@ -133,10 +195,14 @@ df_12ah |>
        caption = "source: Tilastokeskus 12ah -- Kuolleet kuukausittain, 1945-2021"
        ) -> daily_deaths_decade_plot
 
-plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot
+plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot +
+  plot_annotation(title = "Daily deaths in Finland by month (1945-2021)",
+                  subtitle = "Death rates are higher in winter months",
+                  theme = titles_theme)
 
-ggsave(filename = "images//plot_months.png",
-       width = 8, height = 8, dpi = 300, units = "cm", device='png')
+ggsave("images//plot_months.png", plot_months, device = "png",
+       width = 3.15, height = 3.15, units = c("in"))
+
 
 # Causes of death per region --------------------------------------------------
 
@@ -189,76 +255,65 @@ df_region_map <- df_region_map |>
 df_cause_region <- df_region_map |>
   left_join(df_cause_region, by = "Region")
 
+by_cause <- function(cause_1, title_1){
 
-add_linebreak <- function(s1){
-  
-  middle_position = (nchar(s1) -1) / 2
-  
-  second_half = str_sub(s1, middle_position)
-  
-  space_location_second_half = str_locate(second_half, " ") - 1
-  
-  space_location = middle_position + space_location_second_half[[1]]
-  
-  substr(s1, space_location, space_location ) <- "\n"
-  s1
-}
-
-by_cause <- function(cause_1){
-  
-  title_1 <- str_remove(cause_1, " \\(.+\\)" )
-  
-  print(title_1)
-  
-  if(nchar(title_1) > 30) {
-    title_1 = add_linebreak(title_1)
-  }
-  
   df_cause_region |>
     filter(Cause == cause_1) |>
     ggplot() + 
     geom_sf(aes(geometry = geom, fill = Deaths_per_100k)) +
     scale_fill_distiller(palette = "Spectral") +
     labs(subtitle = title_1, fill = NULL) +
-    theme(legend.position = c(0.2, 0.6),
+    theme(legend.position = c(0.18, 0.61),
           legend.background = element_blank(),
+          legend.key.size = unit(0.18, "in"),
+          legend.text = element_text(size = 7),
           plot.subtitle = element_text(size = 8))
 }
 
-p1 <- by_cause("00-54 Total")
-p2 <- by_cause("04-22 Neoplasms (C00-D48)")
-p3 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
+p1 <- by_cause("00-54 Total",
+               "Total")
+p2 <- by_cause("04-22 Neoplasms (C00-D48)",
+               "Neoplasms (cancer)")
+p3 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)",
+               "Endocrine, nutritional and\nmetabolic diseases")
 
-p4 <- by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)")
-p5 <- by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)")
-p6 <- by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)")
+p4 <- by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)",
+               "Dementia, Alzheimers disease")
+p5 <- by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)",
+               "Diseases of the circulatory\nsystem excl. alcohol-related")
+p6 <- by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)",
+               "Diseases of the respiratory system")
 
-p7 <- by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol")
-p8 <- by_cause("42 Land traffic accidents")
-p9 <- by_cause("47 Accidental drownings (W65-W74)")
+p7 <- by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol",
+               "Alcohol-related diseases and\naccidental alcohol poisonings")
+p8 <- by_cause("42 Land traffic accidents",
+               "Land traffic accidents")
+p9 <- by_cause("47 Accidental drownings (W65-W74)",
+               "Accidental drownings")
 
-p10 <- by_cause("50 Suicides (X60-X84, Y870)")
-p11 <- by_cause("51 Assault (X85-Y09, Y871)")
-p12 <- by_cause("54 No death certificate")
+p10 <- by_cause("50 Suicides (X60-X84, Y870)",
+                "Suicide")
+p11 <- by_cause("51 Assault (X85-Y09, Y871)",
+                "Assault")
+p12 <- by_cause("54 No death certificate",
+                "No death certificate")
 
 plot_regions_1 <- ((p1 | p2 | p3) /  
                      (p4 | p5 | p6)) + 
   plot_annotation(title = "Total and diseases related deaths",
                   subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
-                                    "by underlying cause of death and region per 100,000 inhabitants."),
-                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause",
-                  theme = theme(plot.subtitle = element_text(size = 10)))
+                                    "by cause of death and region per 100,000 inhabitants"),
+                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
 
 plot_regions_2 <- (p7 | p8 | p9) /
   (p10 | p11 | p12) +
   plot_annotation(title = "Alchohol, accidental, suicide and other deaths",
                   subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
-                                    "by underlying cause of death and region per 100,000 inhabitants."),
-                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause",
-                  theme = theme(plot.subtitle = element_text(size = 10)))
+                                    "by cause of death and region per 100,000 inhabitants"),
+                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
 
-ggsave("images//plot_regions_1.png", plot_regions_1, device = "png", scale = 1.0)
-ggsave("images//plot_regions_2.png", plot_regions_2, device = "png", scale = 1.0)
+ggsave("images//plot_regions_1.png", plot_regions_1, device = "png", dpi = 130)
+ggsave("images//plot_regions_2.png", plot_regions_2, device = "png", dpi = 130)
 
 # Life expectancy at birth---------------- -----------------------------------
 
@@ -313,9 +368,12 @@ df_life_region |>
        subtitle = "         Females", fill = NULL) +
   theme(legend.position = c(0.2, 0.6),
         legend.background = element_blank(),
+        legend.key.size = unit(0.15, "in"),
+        legend.text = element_text(size = 8),
         panel.background = element_rect(colour = "#CC79A7"),
         plot.title.position = "plot",
-        plot.margin = margin(r = 2.5, unit = "cm")) -> life_exp_region_f_plot
+        plot.margin = margin(r = 2.5, unit = "cm")
+        ) -> life_exp_region_f_plot
 
 df_life_region |>
   filter(Sex == "Males") |>
@@ -325,7 +383,10 @@ df_life_region |>
   labs(subtitle = "Males", fill = NULL) +
   theme(legend.position = c(0.2, 0.6),
         legend.background = element_blank(),
-          panel.background = element_rect(colour = "#0072B2")) -> life_exp_region_m_plot
+        legend.key.size = unit(0.15, "in"),
+        legend.text = element_text(size = 8),
+        panel.background = element_rect(colour = "#0072B2")
+        ) -> life_exp_region_m_plot
 
 plot_life_exp <- (life_exp_plot) /
   (life_exp_region_f_plot + life_exp_region_m_plot) + 
@@ -333,7 +394,8 @@ plot_life_exp <- (life_exp_plot) /
   caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region") +
   plot_layout(heights = c(1.5, 1.9))
 
-ggsave("images//plot_life_exp.png", plot_life_exp, device = "png", scale = 1.8)
+ggsave("images//plot_life_exp.png", plot_life_exp, device = "png", units = c("in"),
+       dpi = 150)
 
 # Overview of deaths in Finland -------------------------------------------
 
