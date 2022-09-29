@@ -246,6 +246,10 @@ px_12am <- pxweb_get(url =
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
 query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 
+px_12am <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
+query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
+
 df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
 
 df_12am <- df_12am |>
@@ -261,35 +265,65 @@ ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
         legend.background = element_blank(),
         plot.title = element_text(hjust = 0.06),
         plot.tag.position = c(0.2, 1)) +
-  labs(subtitle = "Life expectancy by year and sex (1751-2021)", y = NULL, x = NULL,
-       caption = "source: Tilastokeskus 12am -- Life expectancy at birth by sex, 1751-2021"
-       ) -> life_exp_plot
+  labs(subtitle = "Life expectancy by year", y = "age", x = "year",
+       caption = "source: Tilastokeskus 12am, 1751-2021"
+       ) -> life_plot_1
 
 # Survivors of 100k born alive
 
 px_12ap <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ap.px",
-query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"),
-              "Tiedot" = c("elo100000synt")))
+query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Ikä" = c("*"),
+              "Tiedot" = c("*")))
 
 df_12ap <- as_tibble(as.data.frame(px_12ap, column.name.type = "text", variable.value.type = "text"))
 
-df_12ap |>
-  rename(survivors_100k = "Survivors of 100,000 born alive") |>
-  mutate(Sex = as_factor(Sex),
+df_12ap <- df_12ap |>
+  mutate(Age = as.integer(Age),
          Year = as.integer(Year),
-         Age = as.integer(Age)) |>
+         Sex = as_factor(Sex)) |>
+  rename(Life_exp = "Life expectancy, years",
+         Survivors = "Survivors of 100,000 born alive",
+         Death_prob = "Probability of death, per mille") |>
   group_by(Sex, Age) |>
-  summarise(survivors_100k = mean(survivors_100k)) |>
-  ggplot(aes(Age, survivors_100k, color = Sex)) +
+  summarise(Life_exp = mean(Life_exp),
+            Survivors = mean(Survivors),
+            Death_prob = mean(Death_prob)) |>
+  mutate(Death_prob = Death_prob / 10) # Changing to percent 
+
+ggplot(df_12ap, aes(Age, Life_exp, color = Sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
-  theme(legend.position = "none",
-        plot.title = element_text(hjust = 0.06),
-        plot.tag.position = c(0.2, 1)) +
-  labs(subtitle = "Survival of 100,000 born alive by age and sex", y = NULL, x = NULL,
-       caption = "source: Tilastokeskus 12ap -- Life table by age and sex, 1986-2020"
-  ) -> survivors_plot
+  theme(legend.position = "none") +
+  labs(subtitle = "Remaining life expectancy", y = "years", x = "age",
+       caption = "source: Tilastokeskus 12ap, 1986-2020"
+  ) -> life_plot_2
+
+ggplot(df_12ap, aes(Age, Survivors, color = Sex)) +
+  geom_line(size = 1.1) +
+  scale_colour_hue(direction = -1) +
+  scale_y_continuous(labels = scales::comma) +
+  theme(legend.position = "none") +
+  labs(subtitle = "Survival of 100,000 born alive", y = "survivors", x = "age",
+       caption = "source: Tilastokeskus 12ap, 1986-2020"
+  ) -> life_plot_3
+
+
+ggplot(df_12ap, aes(Age, Death_prob, color = Sex)) +
+  geom_line(size = 1.1, na.rm = T) +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = "none") +
+  labs(subtitle = "Yearly probability of death", y = "percent", x = "age",
+       caption = "source: Tilastokeskus 12ap, 1986-2020"
+  ) -> life_plot_4
+
+layout <- "
+AB
+CD
+"
+
+(life_plot_1 + life_plot_2 + life_plot_3 + life_plot_4 +  plot_layout(design = layout)) +
+  plot_annotation(title = "Longetivity by sex")
 
 
 # Life expectancy by region
