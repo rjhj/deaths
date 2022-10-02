@@ -221,7 +221,7 @@ df_11rf |>
   rename(Deaths_All_Regions = Deaths) |>
   mutate(Expected_deaths = (Population / Population_All_Regions) * Deaths_All_Regions) |>
   group_by(Region, Cause) |>
-  summarise(Expected_deaths = sum(Expected_deaths)) -> df_11rf
+  summarise(Expected_deaths = round(sum(Expected_deaths) / 5, 2)) -> df_11rf
 
 # For causes of death per region
 
@@ -241,13 +241,91 @@ df_11bt |>
   mutate(Year = as.integer(Year)) |>
   separate(Region, into = c("ID", "Region"), sep = " ", extra = "merge") |>
   group_by(Region, Cause) |>
-  summarise(Deaths = sum(Deaths)) -> df_11bt
+  summarise(Deaths = mean(Deaths)) -> df_11bt
 
 df_11rf |>
   left_join(df_11bt, by = c("Region", "Cause")) |>
   mutate(SMR = Deaths / Expected_deaths) |> # Standardized mortality ratio
-  relocate(Deaths, .before = Expected_deaths) -> df_smr
+  relocate(Deaths, .before = Expected_deaths) -> df_11rf
 
+# get map
+
+df_region_map <- get_municipalities(year = 2020, scale = 4500)
+
+df_region_map <- df_region_map |>
+  group_by(maakunta_name_en) |>
+  summarise() |>
+  rename(Region = maakunta_name_en)
+
+df_cause_region <- df_region_map |>
+  left_join(df_11rf, by = "Region")
+
+by_cause <- function(cause_1, title_1){
+  
+  df_cause_region |>
+    filter(Cause == cause_1) -> df
+  ggplot(df) + 
+    geom_sf(aes(geometry = geom, fill = SMR)) +
+    scale_fill_distiller(palette = "Spectral",
+                         n.breaks = 6) +
+    labs(subtitle = title_1, fill = NULL) +
+    theme(legend.position = c(0.2, 0.65),
+          legend.background = element_blank(),
+          legend.key.size = unit(0.2, "in"),
+          legend.text = element_text(size = 9),
+          plot.subtitle = element_text(size = 11))
+}
+
+by_cause("00-54 Total",
+               "Total")
+p2 <- by_cause("04-22 Neoplasms (C00-D48)",
+               "Neoplasms (cancer)")
+p3 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)",
+               "Endocrine, nutritional and\nmetabolic diseases")
+
+p4 <- by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)",
+               "Dementia, Alzheimers disease")
+p5 <- by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)",
+               "Diseases of the circulatory\nsystem excl. alcohol-related")
+p6 <- by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)",
+               "Diseases of the\nrespiratory system")
+
+p7 <- by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol",
+               "Alcohol-related diseases and\naccidental alcohol poisonings")
+p8 <- by_cause("42 Land traffic accidents",
+               "Land traffic accidents")
+p9 <- by_cause("47 Accidental drownings (W65-W74)",
+               "Accidental drownings")
+
+p10 <- by_cause("50 Suicides (X60-X84, Y870)",
+                "Suicide")
+p11 <- by_cause("51 Assault (X85-Y09, Y871)",
+                "Assault")
+p12 <- by_cause("54 No death certificate",
+                "No death certificate")
+
+s = "11 Malignant neoplasm of larynx, trachea, bronchus and lung (C32-C34)"
+by_cause(s,
+         " ")
+
+plot_regions_1 <- ((p1 | p2 | p3) /  
+                     (p4 | p5 | p6)) + 
+  plot_annotation(title = "Total and diseases related deaths",
+                  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
+                                    "by cause of death and region per 100,000 inhabitants"),
+                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
+
+plot_regions_2 <- (p7 | p8 | p9) /
+  (p10 | p11 | p12) +
+  plot_annotation(title = "Alchohol, accidental, suicide and other deaths",
+                  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
+                                    "by cause of death and region per 100,000 inhabitants"),
+                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
+
+ggsave("images//3_plot_regions_1.png", plot_regions_1, device = "png", dpi = 96,
+       width = 9, height = 9, units = c("in"))
+ggsave("images//3_plot_regions_2.png", plot_regions_2, device = "png", dpi = 96,
+       width = 9, height = 9, units = c("in"))
 
 
 # Causes of death per region --------------------------------------------------
