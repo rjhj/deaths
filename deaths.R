@@ -236,17 +236,40 @@ query = list(
 
 df_11bt <- as_tibble(as.data.frame(px_11bt, column.name.type = "text", variable.value.type = "text"))
 
+# For Finnish translations
+px_11bt_fi <- pxweb_get(url = 
+"https://pxdata.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px",
+query = list(
+"Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
+            "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
+"Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
+"Vuosi" = c("2020"),
+"Tiedot" = c("*")))
+
+df_11bt_fi <- as_tibble(as.data.frame(px_11bt_fi, column.name.type = "text", variable.value.type = "text"))
+
+df_11bt_fi |>
+  rename(Cause_fi = "Tilaston peruskuolemansyy (aikasarjaluokitus)") |>
+  separate(Maakunta, into = c("ID", "Region_fi"), sep = " ", extra = "merge") |>
+  mutate(Cause_id = str_match(Cause_fi, "[:graph:]+[:space:]")) |>
+  select(ID, Region_fi, Cause_fi, Cause_id) -> df_11bt_fi
+
 df_11bt |>
   rename(Cause = "Underlying cause of death (time series classification)") |>
   mutate(Year = as.integer(Year)) |>
   separate(Region, into = c("ID", "Region"), sep = " ", extra = "merge") |>
-  group_by(Region, Cause) |>
-  summarise(Deaths = sum(Deaths)) -> df_11bt
+  group_by(ID, Region, Cause) |>
+  summarise(Deaths = sum(Deaths)) |>
+  mutate(Cause_id = str_match(Cause, "[:graph:]+[:space:]")) -> df_11bt
+
+df_11bt |>
+  left_join(df_11bt_fi, by = c("ID", "Cause_id")) -> df_11bt
 
 df_11rf |>
   left_join(df_11bt, by = c("Region", "Cause")) |>
   mutate(SMR = Deaths / Expected_deaths) |> # Standardized mortality ratio
-  relocate(Deaths, .before = Expected_deaths) -> df_11rf
+  select(Region, Region_fi, Cause, Cause_fi, Deaths, Expected_deaths, SMR
+         ) -> df_11rf
 
 # get map
 
@@ -271,8 +294,7 @@ by_cause <- function(cause_1, title_1){
                           high = muted("red"),
                           midpoint = 1,
                           space="Lab") + 
-    # scale_fill_distiller(palette = "Spectral",
-    #                      limits = c(0.9, 1.1)) +
+    # scale_fill_distiller(palette = "Spectral") +
     labs(subtitle = title_1, fill = NULL) +
     theme(legend.position = c(0.2, 0.65),
           legend.background = element_blank(),
@@ -280,6 +302,8 @@ by_cause <- function(cause_1, title_1){
           legend.text = element_text(size = 9),
           plot.subtitle = element_text(size = 11))
 }
+
+## FIX TITLES (FINNISH ALSO and codes) FOR MAPS
 
 by_cause("00-54 Total",
                "Total")
