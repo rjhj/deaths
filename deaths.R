@@ -221,7 +221,7 @@ df_11rf |>
   rename(Deaths_All_Regions = Deaths) |>
   mutate(Expected_deaths = (Population / Population_All_Regions) * Deaths_All_Regions) |>
   group_by(Region, Cause) |>
-  summarise(Expected_deaths = round(sum(Expected_deaths) / 5, 2)) -> df_11rf
+  summarise(Expected_deaths = round(sum(Expected_deaths), 2)) -> df_11rf
 
 # For causes of death per region
 
@@ -241,7 +241,7 @@ df_11bt |>
   mutate(Year = as.integer(Year)) |>
   separate(Region, into = c("ID", "Region"), sep = " ", extra = "merge") |>
   group_by(Region, Cause) |>
-  summarise(Deaths = mean(Deaths)) -> df_11bt
+  summarise(Deaths = sum(Deaths)) -> df_11bt
 
 df_11rf |>
   left_join(df_11bt, by = c("Region", "Cause")) |>
@@ -266,8 +266,13 @@ by_cause <- function(cause_1, title_1){
     filter(Cause == cause_1) -> df
   ggplot(df) + 
     geom_sf(aes(geometry = geom, fill = SMR)) +
-    scale_fill_distiller(palette = "Spectral",
-                         n.breaks = 6) +
+    scale_fill_gradient2(low = muted("blue"),
+                          mid = "white",
+                          high = muted("red"),
+                          midpoint = 1,
+                          space="Lab") + 
+    # scale_fill_distiller(palette = "Spectral",
+    #                      limits = c(0.9, 1.1)) +
     labs(subtitle = title_1, fill = NULL) +
     theme(legend.position = c(0.2, 0.65),
           legend.background = element_blank(),
@@ -278,28 +283,28 @@ by_cause <- function(cause_1, title_1){
 
 by_cause("00-54 Total",
                "Total")
-p2 <- by_cause("04-22 Neoplasms (C00-D48)",
+by_cause("04-22 Neoplasms (C00-D48)",
                "Neoplasms (cancer)")
-p3 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)",
+by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)",
                "Endocrine, nutritional and\nmetabolic diseases")
 
-p4 <- by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)",
+by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)",
                "Dementia, Alzheimers disease")
-p5 <- by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)",
+by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)",
                "Diseases of the circulatory\nsystem excl. alcohol-related")
-p6 <- by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)",
+by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)",
                "Diseases of the\nrespiratory system")
 
-p7 <- by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol",
+by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol",
                "Alcohol-related diseases and\naccidental alcohol poisonings")
-p8 <- by_cause("42 Land traffic accidents",
+by_cause("42 Land traffic accidents",
                "Land traffic accidents")
-p9 <- by_cause("47 Accidental drownings (W65-W74)",
+by_cause("47 Accidental drownings (W65-W74)",
                "Accidental drownings")
 
-p10 <- by_cause("50 Suicides (X60-X84, Y870)",
+by_cause("50 Suicides (X60-X84, Y870)",
                 "Suicide")
-p11 <- by_cause("51 Assault (X85-Y09, Y871)",
+by_cause("51 Assault (X85-Y09, Y871)",
                 "Assault")
 p12 <- by_cause("54 No death certificate",
                 "No death certificate")
