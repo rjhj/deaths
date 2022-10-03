@@ -359,6 +359,22 @@ for (i in seq(from = 1, to = length(causes))) {
 }
 ```
 
+Deaths were calculated as sums of deaths for a five year period between 2016 and 2020 for each region. Expected deaths were calculated by comparing all deaths in Finland for that period and standardizing them for each region by age, sex and population. Then deaths were divided by expected deaths to get Standardized Mortality Ratio (SMR). SMR over 1 is represented with red, around 1 with white and under 1 with blue.
+
+Sources:
+
+[Deaths by underlying cause of death and region](https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bt.px/)
+
+[Deaths by underlying cause of death, age and gender for standardization](https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bs.px/)
+
+[Populations and ages per region per year](https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__vaerak/statfin_vaerak_pxt_11rf.px/)
+
+[Correspondence table between municipalities and regions (2020)](https://www.stat.fi/en/luokitukset/corrmaps/kunta_1_20200101%23maakunta_1_20200101)
+
+[Finnish translations](https://statfin.stat.fi/PxWeb/pxweb/fi/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bt.px/)
+
+[Municipality-based statistical units for the map](https://www.stat.fi/org/avoindata/paikkatietoaineistot/kuntapohjaiset_tilastointialueet_en.html)
+
 
 ### 0-3 - Totals and certain infectious diseases
 <button class="btn btn-primary" data-toggle="collapse" data-target="#Block1"> Show/Hide </button>  
