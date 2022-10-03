@@ -132,16 +132,12 @@ ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
 
 # ## Causes of death per region ----------------------------------------------
 
-# Get classifications
-# Source: The correspondence table between municipalities and regions in 2020
+# Get the correspondence table between municipalities and regions in 2020
 # https://www.stat.fi/en/luokitukset/corrmaps/kunta_1_20200101%23maakunta_1_20200101/
-
 region_keys_2020 <- fread("kunta_1_20200101%23maakunta_1_20200101.csv", encoding = "Latin-1",
                           col.names = c("id_1", "Municipality", "id_2", "Region"), header = F)
 
-
 # Get populations and ages per region per year
-
 px_11rf <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/vaerak/statfin_vaerak_pxt_11rf.px",
 query = list(
@@ -199,7 +195,6 @@ df_11rf |>
   left_join(df_all_regions, by = c("Year", "Age", "Sex")) -> df_11rf
 
 # Get Deaths by Underlying cause of death (time series classification), Age, Information, Gender and Year
-
 px_11bs <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bs.px",
 query = list(
@@ -226,7 +221,6 @@ df_11rf |>
   summarise(Expected = round(sum(Expected), 2)) -> df_11rf
 
 # For causes of death per region
-
 px_11bt <- pxweb_get(url = 
  "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px",
 query = list(
@@ -273,8 +267,7 @@ df_11rf |>
   select(Region_fi, Region,  Cause_fi, Cause, Deaths, Expected, SMR
          ) -> df_11rf
 
-# get map
-
+# Get map
 df_region_map <- get_municipalities(year = 2020, scale = 4500)
 
 df_region_map <- df_region_map |>
@@ -285,15 +278,16 @@ df_region_map <- df_region_map |>
 df_cause_region <- df_region_map |>
   left_join(df_11rf, by = "Region")
 
+# Function: Create plots
 by_cause <- function(cause_en){
   
   df_cause_region |>
     filter(Cause == cause_en) -> df
   
-  subtitle_1 <- paste0(df[["Cause"]][[1]], "\n",
+  title_1 <- paste0(df[["Cause"]][[1]], "\n",
                    df[["Cause_fi"]][[1]])
   
-  subtitle_1 <- str_remove_all(subtitle_1, "\\(.+\\)") 
+  title_1 <- str_remove_all(title_1, "\\(.+\\)") 
   
   ggplot(df) + 
     geom_sf(aes(geometry = geom, fill = SMR)) +
@@ -319,13 +313,11 @@ by_cause <- function(cause_en){
     select(Deaths, Expected, SMR) -> df  
   
   p <- p + tableGrob(df, theme = ttheme_default(base_size = 9)) +
-    plot_annotation(title = "Deaths vs expected deaths (2016-2020) for:",
-                    subtitle = subtitle_1,
-                    theme = theme(plot.title = element_text(size = 11),
-                          plot.subtitle = element_text(size = 14)))
+    plot_annotation(title = title_1,
+                    theme = theme(plot.title = element_text(size = 14)))
 }
 
-
+# Save plots
 for (i in seq(from = 1, to = length(causes))) {
   p <- by_cause(causes[i])
   name = paste0("images//region//", as.character(i), ".png")
@@ -333,182 +325,14 @@ for (i in seq(from = 1, to = length(causes))) {
          width = 7.3, height = 6, units = c("in"))
 }
 
-p1 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
 
-
-p1 <- by_cause("00-54 Total")
-  
-
-ggsave("images//region//test.png", p1, device = "png", dpi = 96,
-       width = 7.3, height = 6, units = c("in"))
-
-
-by_cause("00-54 Total")
-by_cause("04-22 Neoplasms (C00-D48)")
-by_cause("00 COVID-19 virus infection (U071, U072)")
-by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
-
-by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)",
-               "Dementia, Alzheimers disease")
-by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)")
-by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)",
-               "Diseases of the\nrespiratory system")
-
-by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol",
-               "Alcohol-related diseases and\naccidental alcohol poisonings")
-by_cause("42 Land traffic accidents",
-               "Land traffic accidents")
-by_cause("47 Accidental drownings (W65-W74)",
-               "Accidental drownings")
-
-by_cause("50 Suicides (X60-X84, Y870)",
-                "Suicide")
-by_cause("51 Assault (X85-Y09, Y871)",
-                "Assault")
-p12 <- by_cause("54 No death certificate",
-                "No death certificate")
-
-s = "11 Malignant neoplasm of larynx, trachea, bronchus and lung (C32-C34)"
-by_cause(s,
-         " ")
-
-plot_regions_1 <- ((p1 | p2 | p3) /  
-                     (p4 | p5 | p6)) + 
-  plot_annotation(title = "Total and diseases related deaths",
-                  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
-                                    "by cause of death and region per 100,000 inhabitants"),
-                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
-
-plot_regions_2 <- (p7 | p8 | p9) /
-  (p10 | p11 | p12) +
-  plot_annotation(title = "Alchohol, accidental, suicide and other deaths",
-                  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
-                                    "by cause of death and region per 100,000 inhabitants"),
-                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
-
-ggsave("images//3_plot_regions_1.png", plot_regions_1, device = "png", dpi = 96,
-       width = 9, height = 9, units = c("in"))
-ggsave("images//3_plot_regions_2.png", plot_regions_2, device = "png", dpi = 96,
-       width = 9, height = 9, units = c("in"))
-
-
-# Causes of death per region --------------------------------------------------
-
-# For causes of death per region
-px_11bt <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px",
-query = list(
-"Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
-  "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
-"Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
-"Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
-"Tiedot" = c("*")))
-
-df_11bt <- as_tibble(as.data.frame(px_11bt, column.name.type = "text", variable.value.type = "text"))
-
-df_11bt <- df_11bt |>
-  rename(Cause = "Underlying cause of death (time series classification)") |>
-  mutate(Year = as.integer(Year)) |>
-  separate(Region, into = c("ID", "Region"), sep = " ", extra = "merge")
-
-# For population per region
-px_11ra <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/vaerak/statfin_vaerak_pxt_11ra.px",
-query = list(
-"Alue" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
-  "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
-"Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
-"Tiedot" = c("vaesto")))
-
-df_11ra <- as_tibble(as.data.frame(px_11ra, column.name.type = "text", variable.value.type = "text"))
-
-df_11ra <- df_11ra |>
-  mutate(Vuosi = as.integer(Vuosi)) |>
-  rename(Population = "Väestö 31.12.") |>
-  separate(Alue, into = c("ID", "Region_fi"), sep = " ", extra = "merge")
-
-df_cause_region <- df_11bt |>
-  left_join(df_11ra, by = c("ID" = "ID", "Year" = "Vuosi")) |>
-  mutate(Deaths_per_100k = Deaths / Population * 100000) |>
-  group_by(Region, Cause) |>
-  summarise(Deaths_per_100k = mean(Deaths_per_100k), .groups = "drop")
-
-df_region_map <- get_municipalities(year = 2020, scale = 4500)
-
-df_region_map <- df_region_map |>
-  group_by(maakunta_name_en) |>
-  summarise() |>
-  rename(Region = maakunta_name_en)
-
-df_cause_region <- df_region_map |>
-  left_join(df_cause_region, by = "Region")
-
-by_cause <- function(cause_1, title_1){
-
-  df_cause_region |>
-    filter(Cause == cause_1) -> df
-    ggplot(df) + 
-    geom_sf(aes(geometry = geom, fill = Deaths_per_100k)) +
-    scale_fill_distiller(palette = "Spectral",
-                         n.breaks = 6) +
-    labs(subtitle = title_1, fill = NULL) +
-    theme(legend.position = c(0.2, 0.65),
-          legend.background = element_blank(),
-          legend.key.size = unit(0.2, "in"),
-          legend.text = element_text(size = 9),
-          plot.subtitle = element_text(size = 11))
+for (i in seq(from = 1, to = 2)) {
+  p <- by_cause(causes[i])
+  name = paste0("images//region//", as.character(i), ".png")
+  ggsave(filename = name, p, device = "png", dpi = 96,
+         width = 7.3, height = 6, units = c("in"))
 }
 
-p1 <- by_cause("00-54 Total",
-               "Total")
-p2 <- by_cause("04-22 Neoplasms (C00-D48)",
-               "Neoplasms (cancer)")
-p3 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)",
-               "Endocrine, nutritional and\nmetabolic diseases")
-
-p4 <- by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)",
-               "Dementia, Alzheimers disease")
-p5 <- by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)",
-               "Diseases of the circulatory\nsystem excl. alcohol-related")
-p6 <- by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)",
-               "Diseases of the\nrespiratory system")
-
-p7 <- by_cause("41 Alcohol-related diseases and accidental poisoning by alcohol",
-               "Alcohol-related diseases and\naccidental alcohol poisonings")
-p8 <- by_cause("42 Land traffic accidents",
-               "Land traffic accidents")
-p9 <- by_cause("47 Accidental drownings (W65-W74)",
-               "Accidental drownings")
-
-p10 <- by_cause("50 Suicides (X60-X84, Y870)",
-                "Suicide")
-p11 <- by_cause("51 Assault (X85-Y09, Y871)",
-                "Assault")
-p12 <- by_cause("54 No death certificate",
-                "No death certificate")
-
-s = "11 Malignant neoplasm of larynx, trachea, bronchus and lung (C32-C34)"
-by_cause(s,
-         " ")
-
-plot_regions_1 <- ((p1 | p2 | p3) /  
-                     (p4 | p5 | p6)) + 
-  plot_annotation(title = "Total and diseases related deaths",
-                  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
-                                    "by cause of death and region per 100,000 inhabitants"),
-                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
-
-plot_regions_2 <- (p7 | p8 | p9) /
-  (p10 | p11 | p12) +
-  plot_annotation(title = "Alchohol, accidental, suicide and other deaths",
-                  subtitle = paste0("Yearly mean for 5 year period (2016-2020) ",
-                                    "by cause of death and region per 100,000 inhabitants"),
-                  caption = "source: Tilastokeskus 11bt -- Deaths by underlying cause")
-
-ggsave("images//3_plot_regions_1.png", plot_regions_1, device = "png", dpi = 96,
-       width = 9, height = 9, units = c("in"))
-ggsave("images//3_plot_regions_2.png", plot_regions_2, device = "png", dpi = 96,
-       width = 9, height = 9, units = c("in"))
 
 # Life expectancy at birth---------------- -----------------------------------
 
