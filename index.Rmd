@@ -20,23 +20,25 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```{r message=FALSE}
 library(tidyverse)
 library(patchwork)
-library(geofi)
-library(pxweb)
-library(scales)
-library(lubridate)
-library(data.table)
-library(gridExtra)
+library(pxweb) # for pxweb_get()
+library(geofi) # for get_municipalities()
+library(scales) # for label_comma()
+library(lubridate) # for ym()
+library(data.table) # for fread()
+library(gridExtra) # for tableGrob()
 ```
 
 ## History
 
 ```{r}
+# 12at -- Vital statistics and population, 1749-2021
 px_12at <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
 query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
 
 df_12at <- as_tibble(as.data.frame(px_12at, column.name.type = "text", variable.value.type = "text"))
 
+# Calculate death rate
 df_12at <- df_12at |>
   rename(Live_births = "Live births") |>
   mutate(Year = as.integer(Year),
@@ -45,29 +47,31 @@ df_12at <- df_12at |>
 # Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
 labels = tribble(
   ~Year, ~Deaths, ~Label,
-  1868,  137720, "Finnish famine (1866–1868)",
-  1918,  92102,  "Civil War\n(1918)",
+  1867,  137720, "Finnish famine (1866–1868)",
+  1917,  92102,  "Civil War\n(1918)",
   1948,  63846,  "Winter,\nContinuation &\nLapland Wars\n(1939–45)",
-  1833,  55038,  "Smallpox,\ndysentery\n& influenza\n(1833)",
-  1806,  51942,  "Finnish War\n(1808-09)",
+  1835,  55038,  "Smallpox,\ndysentery\n& influenza\n(1833)",
+  1805,  51942,  "Finnish War\n(1808-09)",
   2008,  48659,  "In 2021 there were\n57,659 deaths in\nFinland, highest\nsince 1940s"
 )
 
+# Plot deaths 1749-2021
 ggplot(df_12at, aes(Year, Deaths)) +
   geom_line(size = 1.1, color = "#505085") +
   scale_x_continuous(breaks = seq(1750, 2020, 25)) +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 150000, 10000)) +
+  scale_y_continuous(labels = scales::label_comma(), breaks = seq(0, 150000, 10000)) +
   geom_text(aes(label=Label), size = 4.5, vjust = -0.5, data=labels) +
   labs(subtitle = "Deaths",
        y = NULL,
        x = NULL) +
   theme_minimal() -> yearly_deaths_plot
 
-yearly_plot <- function(df, y_stat, subtitle) {
-  ggplot(df, aes(Year, {{y_stat}})) +
+# Function to create the three smaller plots
+create_graph <- function(df, y_stat, subtitle) {
+  ggplot(df, aes(Year, {{y_stat}})) + # curly-curly, because column name passed as variable
     geom_line(color = "#505085") +
     scale_x_continuous(breaks = seq(1750, 2020, 50)) +
-    scale_y_continuous(labels = scales::comma) +
+    scale_y_continuous(labels = scales::label_comma()) +
     labs(subtitle = subtitle,
          y = NULL,
          x = NULL) +
@@ -75,16 +79,19 @@ yearly_plot <- function(df, y_stat, subtitle) {
     theme(text = element_text(size = 11))
 }
 
-yearly_population_plot <- yearly_plot(df_12at, Population, "Population")
-yearly_births_plot <- yearly_plot(df_12at, Live_births, "Live births")
-yearly_death_rate_plot <- yearly_plot(df_12at, Death_rate, "Deaths / 100,000 people")
+# Create the smaller plots
+create_graph(df_12at, Population, "Population") -> yearly_population_plot
+create_graph(df_12at, Live_births, "Live births") -> yearly_births_plot
+create_graph(df_12at, Death_rate, "Deaths / 100,000 people") -> yearly_death_rate_plot
 
+# Set layout for plots
 layout <- "
 AAA
 AAA
 BCD
 "
 
+# Combine and annotate plots
 (yearly_deaths_plot + yearly_population_plot +
                   yearly_births_plot + yearly_death_rate_plot +
                   plot_layout(design = layout)) +
@@ -92,9 +99,9 @@ plot_annotation(title = "Yearly deaths, population and births in Finland, 1749 -
 caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021"
 ) -> plot_yearly
 
+# Save picture
 ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
-
 ```
 
 ![](images/1_plot_yearly.png)
