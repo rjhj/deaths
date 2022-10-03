@@ -99,67 +99,6 @@ ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
 
 ![](images/1_plot_yearly.png)
 
-## Deadliest months
-
-```{r}
-px_12ah <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ah.px",
- query = list("Tapahtumakuukausi" = c("M01", "M02", "M03", "M04", "M05", "M06",
-                                      "M07", "M08", "M09", "M10", "M11", "M12"),
-              "Tiedot"=c("*"), "Vuosi"=c("*")))
-
-df_12ah <- as_tibble(as.data.frame(px_12ah, column.name.type = "text", variable.value.type = "text"))
-
-avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-
-df_12ah |>
-  rename(Month = "Month of occurrence") |>
-  mutate(Year = as.integer(Year),
-         Month = as_factor(Month),
-         Deaths_daily = as.integer(Deaths / avg_days_per_month),
-         Month_short = as_factor(rep(month.abb, n()/12)),
-         Decade = as.character(paste0(Year - Year %% 10, "s")),
-         Decade = str_replace_all(Decade, "1940s", "1945-1949")
-         ) -> df_12ah
-
-df_12ah |>
-  group_by(Month) |>
-  summarise(Deaths_daily = round(mean(Deaths_daily))) |>
-  ggplot(aes(Month, Deaths_daily)) +
-  geom_col() +
-  geom_text(aes(label = Deaths_daily), vjust = 1.5,
-            color = "white", size = 4) +
-  theme_bw() +
-  labs(y = NULL,
-       x = NULL) -> daily_deaths_month_plot
-
-df_12ah |>
-  filter(Decade != "2020s") |>
-  group_by(Decade, Month_short) |>
-  summarise(Deaths_daily = round(mean(Deaths_daily))) |>
-  ggplot(aes(Month_short, Deaths_daily)) +
-  geom_col() +
-  theme_bw() +
-  facet_wrap(vars(Decade), nrow = 2) +
-  geom_text(aes(label = Deaths_daily),
-            color = "white", size = 3.2, angle = 270, hjust = -0.1) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.15)) +
-  labs(subtitle = "By decade",
-       y = NULL,
-       x = NULL,
-       caption = "source: Tilastokeskus 12ah -- Deaths by month, 1945-2021"
-       ) -> daily_deaths_decade_plot
-
-plot_months <-  daily_deaths_month_plot / daily_deaths_decade_plot +
-  plot_annotation(title = "Daily deaths in Finland by month (1945-2021)",
-                  subtitle = "Death rates are higher in winter months")
-
-ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
-       width = 9, height = 9, units = c("in"))
-```
-
-![](images/2_plot_months.png)
-
 ## Region and cause (2016 - 2020)
 
 ```{r}
@@ -359,7 +298,7 @@ for (i in seq(from = 1, to = length(causes))) {
 }
 ```
 
-Deaths were calculated as sums of deaths for a five year period between 2016 and 2020 for each region. Expected deaths were calculated by comparing all deaths in Finland for that period and standardizing them for each region by age, sex and population. Then deaths were divided by expected deaths to get Standardized Mortality Ratio (SMR). SMR over 1 is represented with red, around 1 with white and under 1 with blue.
+Deaths in this section were calculated as sums of deaths for a five year period between 2016 and 2020 for each region. Expected deaths were calculated by comparing all deaths in Finland for the same period and standardizing them for each region by age, sex and population. Then deaths were divided by expected deaths to get Standardized Mortality Ratio (SMR). SMR over 1 is represented with red, around 1 with white and under 1 with blue.
 
 Sources:
 
@@ -377,8 +316,8 @@ Sources:
 
 
 ### 0-3 - Totals and certain infectious diseases
-<button class="btn btn-primary" data-toggle="collapse" data-target="#Block1"> Show/Hide </button>  
-<div id="Block1" class="collapse">  
+<button class="btn btn-light" data-toggle="collapse" data-target="#Block1"> Show/Hide </button>  
+<div id="Block1" class="collapse in">  
 
 ![](images/region/1.png)
 ![](images/region/2.png)
@@ -391,9 +330,8 @@ Sources:
 </div>
 
 ### 4-22 - Neoplasms (cancers)
-<button class="btn btn-primary" data-toggle="collapse" data-target="#Block2"> Show/Hide </button>  
+<button class="btn btn-light" data-toggle="collapse" data-target="#Block2"> Show/Hide </button>  
 <div id="Block2" class="collapse">  
-
 ![](images/region/8.png)
 ![](images/region/9.png)
 ![](images/region/10.png)
@@ -415,13 +353,11 @@ Sources:
 ![](images/region/26.png)
 ![](images/region/27.png)
 ![](images/region/28.png)
-
 </div>
 
 ### 23-30 - Endocrine, nutritional, metabolic, circulatory
-<button class="btn btn-primary" data-toggle="collapse" data-target="#Block3"> Show/Hide </button>  
+<button class="btn btn-light" data-toggle="collapse" data-target="#Block3"> Show/Hide </button>  
 <div id="Block3" class="collapse">  
-
 ![](images/region/29.png)
 ![](images/region/30.png)
 ![](images/region/31.png)
@@ -432,38 +368,31 @@ Sources:
 ![](images/region/36.png)
 ![](images/region/37.png)
 ![](images/region/38.png)
-
 </div>
 
 ### 31-35 - Diseases of the respiratory system
-<button class="btn btn-primary" data-toggle="collapse" data-target="#Block4"> Show/Hide </button>  
+<button class="btn btn-light" data-toggle="collapse" data-target="#Block4"> Show/Hide </button>  
 <div id="Block4" class="collapse">  
-
 ![](images/region/39.png)
 ![](images/region/40.png)
 ![](images/region/41.png)
 ![](images/region/42.png)
 ![](images/region/43.png)
 ![](images/region/44.png)
-
 </div>
 
-
 ### 36-39 - Other diseases 
-<button class="btn btn-primary" data-toggle="collapse" data-target="#Block5"> Show/Hide </button>  
+<button class="btn btn-light" data-toggle="collapse" data-target="#Block5"> Show/Hide </button>  
 <div id="Block5" class="collapse">  
-
 ![](images/region/45.png)
 ![](images/region/46.png)
 ![](images/region/47.png)
 ![](images/region/48.png)
-
 </div>
 
 ### 40-54 Alcohol-related, accidents, violence and unknown 
-<button class="btn btn-primary" data-toggle="collapse" data-target="#Block6"> Show/Hide </button>  
+<button class="btn btn-light" data-toggle="collapse" data-target="#Block6"> Show/Hide </button>  
 <div id="Block6" class="collapse">  
-
 ![](images/region/49.png)
 ![](images/region/50.png)
 ![](images/region/51.png)
@@ -481,11 +410,68 @@ Sources:
 ![](images/region/63.png)
 ![](images/region/64.png)
 ![](images/region/65.png)
-
 </div>
 
+## Deadliest months
 
+```{r}
+px_12ah <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ah.px",
+ query = list("Tapahtumakuukausi" = c("M01", "M02", "M03", "M04", "M05", "M06",
+                                      "M07", "M08", "M09", "M10", "M11", "M12"),
+              "Tiedot"=c("*"), "Vuosi"=c("*")))
 
+df_12ah <- as_tibble(as.data.frame(px_12ah, column.name.type = "text", variable.value.type = "text"))
+
+avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+df_12ah |>
+  rename(Month = "Month of occurrence") |>
+  mutate(Year = as.integer(Year),
+         Month = as_factor(Month),
+         Deaths_daily = as.integer(Deaths / avg_days_per_month),
+         Month_short = as_factor(rep(month.abb, n()/12)),
+         Decade = as.character(paste0(Year - Year %% 10, "s")),
+         Decade = str_replace_all(Decade, "1940s", "1945-1949")
+         ) -> df_12ah
+
+df_12ah |>
+  group_by(Month) |>
+  summarise(Deaths_daily = round(mean(Deaths_daily))) |>
+  ggplot(aes(Month, Deaths_daily)) +
+  geom_col() +
+  geom_text(aes(label = Deaths_daily), vjust = 1.5,
+            color = "white", size = 4) +
+  theme_bw() +
+  labs(y = NULL,
+       x = NULL) -> daily_deaths_month_plot
+
+df_12ah |>
+  filter(Decade != "2020s") |>
+  group_by(Decade, Month_short) |>
+  summarise(Deaths_daily = round(mean(Deaths_daily))) |>
+  ggplot(aes(Month_short, Deaths_daily)) +
+  geom_col() +
+  theme_bw() +
+  facet_wrap(vars(Decade), nrow = 2) +
+  geom_text(aes(label = Deaths_daily),
+            color = "white", size = 3.2, angle = 270, hjust = -0.1) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.15)) +
+  labs(subtitle = "By decade",
+       y = NULL,
+       x = NULL,
+       caption = "source: Tilastokeskus 12ah -- Deaths by month, 1945-2021"
+       ) -> daily_deaths_decade_plot
+
+plot_months <-  daily_deaths_month_plot / daily_deaths_decade_plot +
+  plot_annotation(title = "Daily deaths in Finland by month (1945-2021)",
+                  subtitle = "Death rates are higher in winter months")
+
+ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
+       width = 9, height = 9, units = c("in"))
+```
+
+![](images/2_plot_months.png)
 
 
 
@@ -493,6 +479,10 @@ Sources:
 ## Life expectancy by sex
 
 ```{r}
+px_12am <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
+query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
+
 px_12am <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
 query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
@@ -512,36 +502,56 @@ ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
         legend.background = element_blank(),
         plot.title = element_text(hjust = 0.06),
         plot.tag.position = c(0.2, 1)) +
-  labs(subtitle = "Life expectancy by year and sex (1751-2021)", y = NULL, x = NULL,
-       caption = "source: Tilastokeskus 12am -- Life expectancy at birth by sex, 1751-2021"
-       ) -> life_exp_plot
+  labs(subtitle = "Life expectancy by year (1751-2021)", y = "age", x = "year"
+       ) -> life_plot_1
 
 # Survivors of 100k born alive
 
 px_12ap <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ap.px",
-query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"),
-              "Tiedot" = c("elo100000synt")))
+query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 
 df_12ap <- as_tibble(as.data.frame(px_12ap, column.name.type = "text", variable.value.type = "text"))
 
-df_12ap |>
-  rename(survivors_100k = "Survivors of 100,000 born alive") |>
-  mutate(Sex = as_factor(Sex),
+df_12ap <- df_12ap |>
+  mutate(Age = as.integer(Age),
          Year = as.integer(Year),
-         Age = as.integer(Age)) |>
+         Sex = as_factor(Sex)) |>
+  rename(Life_exp = "Life expectancy, years",
+         Survivors = "Survivors of 100,000 born alive",
+         Death_prob = "Probability of death, per mille") |>
   group_by(Sex, Age) |>
-  summarise(survivors_100k = mean(survivors_100k)) |>
-  ggplot(aes(Age, survivors_100k, color = Sex)) +
+  summarise(Life_exp = mean(Life_exp),
+            Survivors = mean(Survivors),
+            Death_prob = mean(Death_prob)) |>
+  mutate(Death_prob = Death_prob / 10) # Changing to percent 
+
+ggplot(df_12ap, aes(Age, Life_exp, color = Sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
-  theme(legend.position = "none",
-        plot.title = element_text(hjust = 0.06),
-        plot.tag.position = c(0.2, 1)) +
-  labs(subtitle = "Survival of 100,000 born alive by age and sex", y = NULL, x = NULL,
-       caption = "source: Tilastokeskus 12ap -- Life table by age and sex, 1986-2020"
-  ) -> survivors_plot
+  theme(legend.position = "none") +
+  labs(subtitle = "Remaining life expectancy (1986-2020)", y = "years", x = "age"
+  ) -> life_plot_2
 
+ggplot(df_12ap, aes(Age, Survivors, color = Sex)) +
+  geom_line(size = 1.1) +
+  scale_colour_hue(direction = -1) +
+  scale_y_continuous(labels = scales::comma) +
+  theme(legend.position = "none") +
+  labs(subtitle = "Survival of 100,000 born alive (1986-2020)", y = "survivors", x = "age"
+  ) -> life_plot_3
+
+ggplot(df_12ap, aes(Age, Death_prob, color = Sex)) +
+  geom_line(size = 1.1, na.rm = T) +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = "none") +
+  labs(subtitle = "Yearly probability of death (1986-2020)", y = "percent", x = "age"
+  ) -> life_plot_4
+
+
+plot_life_exp_1 <- (life_plot_1 / life_plot_2 | life_plot_3 / life_plot_4) +
+  plot_annotation(title = "Longetivity by sex",
+                  caption = "sources: Tilastokeskus 12am (1751-2021) & 12ap (1986-2020)")
 
 # Life expectancy by region
 px_12an <- pxweb_get(url = 
@@ -566,49 +576,43 @@ df_life_region |>
   filter(Sex == "Females") |>
   ggplot() + 
   geom_sf(aes(geometry = geom, fill = Life_exp)) +
-  scale_fill_distiller(palette = "Spectral", direction = 1) +
-  labs(title = "Life expectancy by region (2018-2020)", subtitle = "Females", fill = NULL) +
-  theme(legend.position = c(0.2, 0.6),
+  scale_fill_distiller(palette = "Spectral", direction = 1, n.breaks = 9) +
+  labs(subtitle = "Females", fill = NULL) +
+  theme(legend.position = c(0.15, 0.63),
         legend.background = element_blank(),
-        legend.key.size = unit(0.15, "in"),
-        legend.text = element_text(size = 8),
+        legend.key.size = unit(0.4, "in"),
+        legend.text = element_text(size = 9),
         panel.background = element_rect(colour = "#CC79A7"),
-        plot.margin = margin(r = 0, unit = "cm"),
-        plot.title = element_text(size = 11),
-        plot.subtitle = element_text(size = 10)
+        plot.margin = margin(r = 1, unit = "cm"),
+        plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_f_plot
 
 df_life_region |>
   filter(Sex == "Males") |>
   ggplot() + 
   geom_sf(aes(geometry = geom, fill = Life_exp)) +
-  scale_fill_distiller(palette = "Spectral", direction = 1) +
+  scale_fill_distiller(palette = "Spectral", direction = 1, n.breaks = 9) +
   labs(subtitle = "Males", fill = NULL) +
-  theme(legend.position = c(0.2, 0.6),
+  theme(legend.position = c(0.15, 0.63),
         legend.background = element_blank(),
-        legend.key.size = unit(0.15, "in"),
-        legend.text = element_text(size = 8),
+        legend.key.size = unit(0.4, "in"),
+        legend.text = element_text(size = 9),
         panel.background = element_rect(colour = "#0072B2"),
-        plot.subtitle = element_text(size = 10)
+        plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_m_plot
 
-layout <- "
-AA
-AA
-BB
-BB
-CD
-CD
-CD
-"
 
-plot_life_exp <- (life_exp_plot + survivors_plot +
- life_exp_region_f_plot + life_exp_region_m_plot +
-    plot_layout(design = layout)) +
-  plot_annotation(caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region")
+plot_life_exp_2 <- life_exp_region_f_plot + life_exp_region_m_plot +
+  plot_annotation(title = "Life expectancy by region (2018-2020)",
+    caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region")
 
-ggsave("images//plot_life_exp.png", plot_life_exp, device = "png", dpi = 120,
-       width = 7.5, height = 10, units = c("in"))
 
+ggsave("images//3_plot_life_exp_1.png", plot_life_exp_1, device = "png", dpi = 96,
+       width = 9, height = 7, units = c("in"))
+
+ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 96,
+       width = 7, height = 6.3, units = c("in"))
 ```
 
+![](images/3_plot_life_exp_1.png)
+![](images/3_plot_life_exp_2.png)
