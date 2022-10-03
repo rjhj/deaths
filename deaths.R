@@ -301,12 +301,14 @@ by_cause <- function(cause_en){
                           midpoint = 1,
                           space="Lab") + 
     # scale_fill_distiller(palette = "Spectral") +
-    labs(title = title_both, fill = NULL) +
+    # labs(title = "Deaths (2016-2020) vs expected deaths",
+    #   subtitle = title_both, fill = NULL) +
     theme(legend.position = c(0.2, 0.65),
           legend.background = element_blank(),
           legend.key.size = unit(0.2, "in"),
           legend.text = element_text(size = 9),
-          plot.title = element_text(size = 10),
+          plot.title = element_text(size = 11),
+          plot.subtitle = element_text(size = 10),
           plot.title.position = "plot")
 }
 
@@ -326,7 +328,8 @@ df_11rf |>
 t1 <- ttheme_default(base_size = 9)
   
 p <- p1 + tableGrob(df_test, theme = t1)
-p
+p + plot_annotation(title = "Total and diseases related deaths",
+                    subtitle = "23-24 Endocrine, nutritional and metabolic diseases (E00-E90)\n23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
 
 ggsave("images//3_plot_regions_3.png", p, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
