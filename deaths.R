@@ -5,6 +5,7 @@ library(pxweb)
 library(scales)
 library(lubridate)
 library(data.table)
+library(gridExtra)
 
 # Which years had the most deaths? -------------------------------------------- 
 px_12at <- pxweb_get(url = 
@@ -129,11 +130,10 @@ ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
 
 
-# ## Standardization ----------------------------------------------
+# ## Causes of death per region ----------------------------------------------
 
 # Get classifications
-# Source:
-# The correspondence table between municipalities and regions in 2020
+# Source: The correspondence table between municipalities and regions in 2020
 # https://www.stat.fi/en/luokitukset/corrmaps/kunta_1_20200101%23maakunta_1_20200101/
 
 region_keys_2020 <- fread("kunta_1_20200101%23maakunta_1_20200101.csv", encoding = "Latin-1",
@@ -219,9 +219,9 @@ df_11bs |>
 df_11rf |>
   left_join(df_11bs, by = c("Age", "Sex", "Year")) |>
   rename(Deaths_All_Regions = Deaths) |>
-  mutate(Expected_deaths = (Population / Population_All_Regions) * Deaths_All_Regions) |>
+  mutate(Expected = (Population / Population_All_Regions) * Deaths_All_Regions) |>
   group_by(Region, Cause) |>
-  summarise(Expected_deaths = round(sum(Expected_deaths), 2)) -> df_11rf
+  summarise(Expected = round(sum(Expected), 2)) -> df_11rf
 
 # For causes of death per region
 
@@ -267,8 +267,8 @@ df_11bt |>
 
 df_11rf |>
   left_join(df_11bt, by = c("Region", "Cause")) |>
-  mutate(SMR = Deaths / Expected_deaths) |> # Standardized mortality ratio
-  select(Region, Region_fi, Cause, Cause_fi, Deaths, Expected_deaths, SMR
+  mutate(SMR = round(Deaths / Expected, 2)) |> # Standardized mortality ratio
+  select(Region_fi, Region,  Cause_fi, Cause, Deaths, Expected, SMR
          ) -> df_11rf
 
 # get map
@@ -283,10 +283,16 @@ df_region_map <- df_region_map |>
 df_cause_region <- df_region_map |>
   left_join(df_11rf, by = "Region")
 
-by_cause <- function(cause_1, title_1){
+by_cause <- function(cause_en){
   
   df_cause_region |>
-    filter(Cause == cause_1) -> df
+    filter(Cause == cause_en) -> df
+  
+  title_both <- paste0(df[["Cause"]][[1]], "\n",
+                   df[["Cause_fi"]][[1]])
+  
+  title_both <- str_remove_all(title_both, "\\(.+\\)") 
+  
   ggplot(df) + 
     geom_sf(aes(geometry = geom, fill = SMR)) +
     scale_fill_gradient2(low = muted("blue"),
@@ -295,27 +301,45 @@ by_cause <- function(cause_1, title_1){
                           midpoint = 1,
                           space="Lab") + 
     # scale_fill_distiller(palette = "Spectral") +
-    labs(subtitle = title_1, fill = NULL) +
+    labs(title = title_both, fill = NULL) +
     theme(legend.position = c(0.2, 0.65),
           legend.background = element_blank(),
           legend.key.size = unit(0.2, "in"),
           legend.text = element_text(size = 9),
-          plot.subtitle = element_text(size = 11))
+          plot.title = element_text(size = 10),
+          plot.title.position = "plot")
 }
+
+df_cause_region[["Cause"]]
 
 ## FIX TITLES (FINNISH ALSO and codes) FOR MAPS
 
-by_cause("00-54 Total",
-               "Total")
-by_cause("04-22 Neoplasms (C00-D48)",
-               "Neoplasms (cancer)")
-by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)",
-               "Endocrine, nutritional and\nmetabolic diseases")
+
+p1 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
+df_11rf |>
+  ungroup() |>
+  filter(Cause == "23-24 Endocrine, nutritional and metabolic diseases (E00-E90)") |>
+  column_to_rownames(var = "Region_fi") |>
+  arrange(desc(SMR)) |>
+  select(Deaths, Expected, SMR) -> df_test
+  
+t1 <- ttheme_default(base_size = 9)
+  
+p <- p1 + tableGrob(df_test, theme = t1)
+p
+
+ggsave("images//3_plot_regions_3.png", p, device = "png", dpi = 96,
+       width = 9, height = 9, units = c("in"))
+
+
+by_cause("00-54 Total")
+by_cause("04-22 Neoplasms (C00-D48)")
+by_cause("00 COVID-19 virus infection (U071, U072)")
+by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
 
 by_cause("25 Dementia, Alzheimers disease (F01, F03, G30, R54)",
                "Dementia, Alzheimers disease")
-by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)",
-               "Diseases of the circulatory\nsystem excl. alcohol-related")
+by_cause("27-30 Diseases of the circulatory system excl. alcohol-related (I00-I425, I427-I99)")
 by_cause("31-35 Diseases of the respiratory system (J00-J64, J66-J99)",
                "Diseases of the\nrespiratory system")
 
