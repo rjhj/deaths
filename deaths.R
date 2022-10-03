@@ -211,6 +211,8 @@ query = list(
 
 df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
 
+df_11bs$`Underlying cause of death (time series classification)` |> unique() -> causes
+
 df_11bs |>
   rename(Cause = "Underlying cause of death (time series classification)",
          Sex = Gender) |>
@@ -288,10 +290,10 @@ by_cause <- function(cause_en){
   df_cause_region |>
     filter(Cause == cause_en) -> df
   
-  title_both <- paste0(df[["Cause"]][[1]], "\n",
+  subtitle_1 <- paste0(df[["Cause"]][[1]], "\n",
                    df[["Cause_fi"]][[1]])
   
-  title_both <- str_remove_all(title_both, "\\(.+\\)") 
+  subtitle_1 <- str_remove_all(subtitle_1, "\\(.+\\)") 
   
   ggplot(df) + 
     geom_sf(aes(geometry = geom, fill = SMR)) +
@@ -300,39 +302,45 @@ by_cause <- function(cause_en){
                           high = muted("red"),
                           midpoint = 1,
                           space="Lab") + 
-    # scale_fill_distiller(palette = "Spectral") +
-    # labs(title = "Deaths (2016-2020) vs expected deaths",
-    #   subtitle = title_both, fill = NULL) +
+    labs(fill = NULL) +
     theme(legend.position = c(0.2, 0.65),
           legend.background = element_blank(),
           legend.key.size = unit(0.2, "in"),
           legend.text = element_text(size = 9),
           plot.title = element_text(size = 11),
           plot.subtitle = element_text(size = 10),
-          plot.title.position = "plot")
+          plot.title.position = "plot") -> p
+  
+  df |>
+    ungroup() |>
+    filter(Cause == cause_en) |>
+    column_to_rownames(var = "Region_fi") |>
+    arrange(desc(SMR)) |>
+    select(Deaths, Expected, SMR) -> df  
+  
+  p <- p + tableGrob(df, theme = ttheme_default(base_size = 9)) +
+    plot_annotation(title = "Deaths vs expected deaths (2016-2020) for:",
+                    subtitle = subtitle_1,
+                    theme = theme(plot.title = element_text(size = 11),
+                          plot.subtitle = element_text(size = 14)))
 }
 
-df_cause_region[["Cause"]]
 
-## FIX TITLES (FINNISH ALSO and codes) FOR MAPS
-
+for (i in seq(from = 1, to = length(causes))) {
+  p <- by_cause(causes[i])
+  name = paste0("images//region//", as.character(i), ".png")
+  ggsave(filename = name, p, device = "png", dpi = 96,
+         width = 7.3, height = 6, units = c("in"))
+}
 
 p1 <- by_cause("23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
-df_11rf |>
-  ungroup() |>
-  filter(Cause == "23-24 Endocrine, nutritional and metabolic diseases (E00-E90)") |>
-  column_to_rownames(var = "Region_fi") |>
-  arrange(desc(SMR)) |>
-  select(Deaths, Expected, SMR) -> df_test
-  
-t1 <- ttheme_default(base_size = 9)
-  
-p <- p1 + tableGrob(df_test, theme = t1)
-p + plot_annotation(title = "Total and diseases related deaths",
-                    subtitle = "23-24 Endocrine, nutritional and metabolic diseases (E00-E90)\n23-24 Endocrine, nutritional and metabolic diseases (E00-E90)")
 
-ggsave("images//3_plot_regions_3.png", p, device = "png", dpi = 96,
-       width = 9, height = 9, units = c("in"))
+
+p1 <- by_cause("00-54 Total")
+  
+
+ggsave("images//region//test.png", p1, device = "png", dpi = 96,
+       width = 7.3, height = 6, units = c("in"))
 
 
 by_cause("00-54 Total")
