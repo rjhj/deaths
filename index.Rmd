@@ -111,21 +111,23 @@ ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
 ```{r}
 # Get the correspondence table between municipalities and regions in 2020
 # https://www.stat.fi/en/luokitukset/corrmaps/kunta_1_20200101%23maakunta_1_20200101/
-region_keys_2020 <- fread("kunta_1_20200101%23maakunta_1_20200101.csv", encoding = "Latin-1",
+region_keys_2020 <- data.table::fread("kunta_1_20200101%23maakunta_1_20200101.csv", encoding = "Latin-1",
                           col.names = c("id_1", "Municipality", "id_2", "Region"), header = F)
 
-# Get populations and ages per region per year
+# 11rf -- Population according to age (1-year) and sex by area and the regional division of each statistical reference year, 2003-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__vaerak/statfin_vaerak_pxt_11rf.px/
 px_11rf <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/vaerak/statfin_vaerak_pxt_11rf.px",
-query = list(
-"Kunta" = c("*"),
-"Sukupuoli" = c("1", "2"),
-"Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
-"Ikä" = c("*"),
-"Tiedot" = c("*")))
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/vaerak/statfin_vaerak_pxt_11rf.px",
+                     query = list(
+                       "Kunta" = c("*"),
+                       "Sukupuoli" = c("1", "2"),
+                       "Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
+                       "Tiedot" = c("*"),
+                       "Ikä" = c("*")))
 
 df_11rf <- as_tibble(as.data.frame(px_11rf, column.name.type = "text", variable.value.type = "text"))
 
+# Filter out totals, create age brackets, aggregate municipalities to regions 
 df_11rf |>
   drop_na() |>
   filter(Municipality != "WHOLE COUNTRY",
@@ -158,38 +160,44 @@ df_11rf |>
   select(Municipality, Year, Sex, Population, Region, Age_group) |>
   rename(Age = Age_group) |>
   mutate(Region = case_when(Municipality == "Juankoski" ~ "North Savo",
-                              Municipality == "Luvia" ~ "Satakunta",
-                              Municipality == "Valtimo" ~ "North Karelia",
-                              TRUE ~ Region)) |>
+                            Municipality == "Luvia" ~ "Satakunta",
+                            Municipality == "Valtimo" ~ "North Karelia",
+                            TRUE ~ Region)) |>
   group_by(Region, Year, Age, Sex) |>
   summarise(Population = sum(Population)) -> df_11rf
 
+# Create a df with all regions aggregated to one Finnish population per age, sex and year
 df_11rf |>
   group_by(Year, Age, Sex) |>
   summarise(Population_All_Regions = sum(Population)) -> df_all_regions
 
+# Add column Population_All_Regions to the main df
 df_11rf |>
   left_join(df_all_regions, by = c("Year", "Age", "Sex")) -> df_11rf
 
 # Get Deaths by Underlying cause of death (time series classification), Age, Information, Gender and Year
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bs.px/
 px_11bs <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bs.px",
-query = list(
-"Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
-"Sukupuoli" = c("1", "2"),
-"Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
-"Ikä" = c("*"),
-"Tiedot" = c("*")))
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bs.px",
+                     query = list(
+                       "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
+                       "Sukupuoli" = c("1", "2"),
+                       "Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
+                       "Ikä" = c("*"),
+                       "Tiedot" = c("*")))
 
 df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
 
+# Save all the unique causes as an atomic vector for later use
 df_11bs$`Underlying cause of death (time series classification)` |> unique() -> causes
 
+# Rename columns and filter out totals
 df_11bs |>
   rename(Cause = "Underlying cause of death (time series classification)",
          Sex = Gender) |>
   filter(Age != "Total") -> df_11bs
 
+# Add Cause and Deaths columns to the main df to calculate expected deaths, aggregate years together
 df_11rf |>
   left_join(df_11bs, by = c("Age", "Sex", "Year")) |>
   rename(Deaths_All_Regions = Deaths) |>
@@ -197,36 +205,43 @@ df_11rf |>
   group_by(Region, Cause) |>
   summarise(Expected = round(sum(Expected), 2)) -> df_11rf
 
+# At this point df_11rf contains expected deaths by cause and region. Next we need to know the actual deaths.
+
 # For causes of death per region
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bt.px/
 px_11bt <- pxweb_get(url = 
- "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px",
-query = list(
- "Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
-                "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
- "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
- "Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
- "Tiedot" = c("*")))
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px",
+                     query = list(
+                       "Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
+                                      "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
+                       "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
+                       "Vuosi" = c("2016", "2017", "2018", "2019", "2020"),
+                       "Tiedot" = c("*")))
 
 df_11bt <- as_tibble(as.data.frame(px_11bt, column.name.type = "text", variable.value.type = "text"))
 
 # For Finnish translations
+# https://statfin.stat.fi/PxWeb/pxweb/fi/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bt.px/
 px_11bt_fi <- pxweb_get(url = 
-"https://pxdata.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px",
-query = list(
-"Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
-            "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
-"Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
-"Vuosi" = c("2020"),
-"Tiedot" = c("*")))
+                          "https://pxdata.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_11bt.px",
+                        query = list(
+                          "Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
+                                         "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
+                          "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"),
+                          "Vuosi" = c("2020"),
+                          "Tiedot" = c("*")))
 
 df_11bt_fi <- as_tibble(as.data.frame(px_11bt_fi, column.name.type = "text", variable.value.type = "text"))
 
+# Finnish translations need to be joined to the English df. For that we 
+# create ID columns for region and cause.
 df_11bt_fi |>
   rename(Cause_fi = "Tilaston peruskuolemansyy (aikasarjaluokitus)") |>
   separate(Maakunta, into = c("ID", "Region_fi"), sep = " ", extra = "merge") |>
   mutate(Cause_id = str_match(Cause_fi, "[:graph:]+[:space:]")) |>
   select(ID, Region_fi, Cause_fi, Cause_id) -> df_11bt_fi
 
+# Also prepare the English version for future joining similarly
 df_11bt |>
   rename(Cause = "Underlying cause of death (time series classification)") |>
   mutate(Year = as.integer(Year)) |>
@@ -235,44 +250,52 @@ df_11bt |>
   summarise(Deaths = sum(Deaths)) |>
   mutate(Cause_id = str_match(Cause, "[:graph:]+[:space:]")) -> df_11bt
 
+# Join the Finnish translations for region and cause
 df_11bt |>
   left_join(df_11bt_fi, by = c("ID", "Cause_id")) -> df_11bt
 
+# Join main df (expected deaths) with actual deaths. Now we can calculate SMRs.
 df_11rf |>
   left_join(df_11bt, by = c("Region", "Cause")) |>
   mutate(SMR = round(Deaths / Expected, 2)) |> # Standardized mortality ratio
   select(Region_fi, Region,  Cause_fi, Cause, Deaths, Expected, SMR
-         ) -> df_11rf
+  ) -> df_11rf
 
-# Get map
-df_region_map <- get_municipalities(year = 2020, scale = 4500)
+# Get map so we can draw the regions
+df_region_map <- geofi::get_municipalities(year = 2020, scale = 4500)
 
+# Grouping by regions, because we don't need individual municipalities or most other columns
 df_region_map <- df_region_map |>
   group_by(maakunta_name_en) |>
   summarise() |>
   rename(Region = maakunta_name_en)
 
+# Add main df to the map df
 df_cause_region <- df_region_map |>
   left_join(df_11rf, by = "Region")
 
-# Function: Create plots
-by_cause <- function(cause_en){
+# Function: Creates a plot and a table for the given cause of death
+create_plot <- function(cause_en){
   
+  # Filter by the given cause
   df_cause_region |>
     filter(Cause == cause_en) -> df
   
-  subtitle_1 <- paste0(df[["Cause"]][[1]], "\n",
-                   df[["Cause_fi"]][[1]])
+  # Combine the English and Finnish names for the title
+  title_1 <- paste0(df[["Cause"]][[1]], "\n",
+                    df[["Cause_fi"]][[1]])
   
-  subtitle_1 <- str_remove_all(subtitle_1, "\\(.+\\)") 
+  # Remove the unnecessary things (those in parentheses) from the title
+  title_1 <- str_remove_all(title_1, "\\(.+\\)") 
   
+  # Create the plot
   ggplot(df) + 
     geom_sf(aes(geometry = geom, fill = SMR)) +
     scale_fill_gradient2(low = muted("blue"),
-                          mid = "white",
-                          high = muted("red"),
-                          midpoint = 1,
-                          space="Lab") + 
+                         mid = "white",
+                         high = muted("red"),
+                         midpoint = 1,
+                         space="Lab") + 
     labs(fill = NULL) +
     theme(legend.position = c(0.2, 0.65),
           legend.background = element_blank(),
@@ -282,6 +305,7 @@ by_cause <- function(cause_en){
           plot.subtitle = element_text(size = 10),
           plot.title.position = "plot") -> p
   
+  # Set Region_fi column as row names and select only few columns for the table
   df |>
     ungroup() |>
     filter(Cause == cause_en) |>
@@ -289,16 +313,15 @@ by_cause <- function(cause_en){
     arrange(desc(SMR)) |>
     select(Deaths, Expected, SMR) -> df  
   
-  p <- p + tableGrob(df, theme = ttheme_default(base_size = 9)) +
-    plot_annotation(title = "Deaths vs expected deaths (2016-2020) for:",
-                    subtitle = subtitle_1,
-                    theme = theme(plot.title = element_text(size = 11),
-                          plot.subtitle = element_text(size = 14)))
+  # Create the table and combine it with the plot
+  p <- p + gridExtra::tableGrob(df, theme = ttheme_default(base_size = 9)) +
+    plot_annotation(title = title_1,
+                    theme = theme(plot.title = element_text(size = 14)))
 }
 
-# Save plots
+# Save plots for all causes as pictures. Warning: creates 65 pictures!
 for (i in seq(from = 1, to = length(causes))) {
-  p <- by_cause(causes[i])
+  p <- create_plot(causes[i])
   name = paste0("images//region//", as.character(i), ".png")
   ggsave(filename = name, p, device = "png", dpi = 96,
          width = 7.3, height = 6, units = c("in"))
@@ -422,6 +445,8 @@ Sources:
 ## Deadliest months
 
 ```{r}
+# 12ah -- Deaths by month, 1945-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ah.px/
 px_12ah <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ah.px",
  query = list("Tapahtumakuukausi" = c("M01", "M02", "M03", "M04", "M05", "M06",
@@ -430,8 +455,10 @@ px_12ah <- pxweb_get(url =
 
 df_12ah <- as_tibble(as.data.frame(px_12ah, column.name.type = "text", variable.value.type = "text"))
 
+# Vector of average days / month to calculate daily stats
 avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
+# Add daily deaths, short name for month and decade columns
 df_12ah |>
   rename(Month = "Month of occurrence") |>
   mutate(Year = as.integer(Year),
@@ -442,6 +469,7 @@ df_12ah |>
          Decade = str_replace_all(Decade, "1940s", "1945-1949")
          ) -> df_12ah
 
+# Calculate mean of daily deaths by month for 1945-2021 and create a plot
 df_12ah |>
   group_by(Month) |>
   summarise(Deaths_daily = round(mean(Deaths_daily))) |>
@@ -453,6 +481,7 @@ df_12ah |>
   labs(y = NULL,
        x = NULL) -> daily_deaths_month_plot
 
+# Create the daily deaths by month by decade plots
 df_12ah |>
   filter(Decade != "2020s") |>
   group_by(Decade, Month_short) |>
@@ -470,10 +499,12 @@ df_12ah |>
        caption = "source: Tilastokeskus 12ah -- Deaths by month, 1945-2021"
        ) -> daily_deaths_decade_plot
 
-plot_months <-  daily_deaths_month_plot / daily_deaths_decade_plot +
+# Combine the created plots and add annotations
+plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot +
   plot_annotation(title = "Daily deaths in Finland by month (1945-2021)",
                   subtitle = "Death rates are higher in winter months")
 
+# Save as a picture
 ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
 ```
@@ -481,27 +512,28 @@ ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
 ![](images/2_plot_months.png)
 
 
-
-
 ## Life expectancy by sex
 
 ```{r}
-px_12am <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
-query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
+# Notice: To create the second plots (region) in this section we are
+# reusing df_region_map (created in the section Region and cause (2016 - 2020))
 
+# 12am -- Life expectancy at birth by sex, 1751-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12am.px/
 px_12am <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
 query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 
 df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
 
+# Some years are in the form of "1751-1760", so we edit those to integers
 df_12am <- df_12am |>
   rename(Life_exp = "Life expectancy at birth, years") |>
   mutate(Year = str_sub(Year, 1, 4)) |>
   mutate(Year = as.integer(Year),
          Sex = as_factor(Sex))
 
+# Create the first of four plots
 ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
@@ -512,14 +544,17 @@ ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
   labs(subtitle = "Life expectancy by year (1751-2021)", y = "age", x = "year"
        ) -> life_plot_1
 
-# Survivors of 100k born alive
-
+# 12ap -- Life table by age and sex, 1986-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ap.px/
+# This is used to to create the next three plots
 px_12ap <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ap.px",
-query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
+query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*"),
+             "Ikä" = c("*")))
 
 df_12ap <- as_tibble(as.data.frame(px_12ap, column.name.type = "text", variable.value.type = "text"))
 
+# Calculate yearly means from 1986-2020 data   
 df_12ap <- df_12ap |>
   mutate(Age = as.integer(Age),
          Year = as.integer(Year),
@@ -533,34 +568,29 @@ df_12ap <- df_12ap |>
             Death_prob = mean(Death_prob)) |>
   mutate(Death_prob = Death_prob / 10) # Changing to percent 
 
-ggplot(df_12ap, aes(Age, Life_exp, color = Sex)) +
-  geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = "none") +
-  labs(subtitle = "Remaining life expectancy (1986-2020)", y = "years", x = "age"
-  ) -> life_plot_2
+# Function used to create the remaining three plots
+create_plot <- function(ycol, ylab, subtitle_1) {
+  ggplot(df_12ap, aes(Age, !!sym(ycol), color = Sex)) +
+    geom_line(size = 1.1, na.rm = T) +
+    scale_colour_hue(direction = -1) +
+    scale_y_continuous(labels = scales::label_comma()) +
+    theme(legend.position = "none") +
+    labs(subtitle = subtitle_1, y = ylab, x = "age"
+    )
+}
 
-ggplot(df_12ap, aes(Age, Survivors, color = Sex)) +
-  geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  scale_y_continuous(labels = scales::comma) +
-  theme(legend.position = "none") +
-  labs(subtitle = "Survival of 100,000 born alive (1986-2020)", y = "survivors", x = "age"
-  ) -> life_plot_3
+# Create the plots 2-4
+create_plot("Life_exp", "years", "Remaining life expectancy (1986-2020)") -> life_plot_2
+create_plot("Survivors", "survivors", "Survival of 100,000 born alive (1986-2020)") -> life_plot_3
+create_plot("Death_prob", "percent", "Yearly probability of death (1986-2020)") -> life_plot_4
 
-ggplot(df_12ap, aes(Age, Death_prob, color = Sex)) +
-  geom_line(size = 1.1, na.rm = T) +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = "none") +
-  labs(subtitle = "Yearly probability of death (1986-2020)", y = "percent", x = "age"
-  ) -> life_plot_4
-
-
+# Combine and annotate plots 1-4
 plot_life_exp_1 <- (life_plot_1 / life_plot_2 | life_plot_3 / life_plot_4) +
   plot_annotation(title = "Longetivity by sex",
                   caption = "sources: Tilastokeskus 12am (1751-2021) & 12ap (1986-2020)")
 
-# Life expectancy by region
+# 12an -- Life expectancy at birth by sex and region
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12an.px/
 px_12an <- pxweb_get(url = 
                        "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12an.px",
                      query = list(
@@ -572,13 +602,16 @@ px_12an <- pxweb_get(url =
 
 df_12an <- as_tibble(as.data.frame(px_12an, column.name.type = "text", variable.value.type = "text"))
 
+# Remove ID from region name
 df_12an <- df_12an |> 
   rename(Life_exp = "Life expectancy at birth, years") |>
   mutate(Region = str_remove_all(Region, "MK.. "))
 
+# Add map. Notice: df_region_map was created in the section Region and cause (2016 - 2020)
 df_life_region <- df_region_map |>
   left_join(df_12an, by = c("Region"))
 
+# Create Females plot
 df_life_region |>
   filter(Sex == "Females") |>
   ggplot() + 
@@ -594,6 +627,7 @@ df_life_region |>
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_f_plot
 
+# Create Males plot
 df_life_region |>
   filter(Sex == "Males") |>
   ggplot() + 
@@ -608,15 +642,14 @@ df_life_region |>
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_m_plot
 
-
+# Combine and annotate region plots
 plot_life_exp_2 <- life_exp_region_f_plot + life_exp_region_m_plot +
   plot_annotation(title = "Life expectancy by region (2018-2020)",
     caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region")
 
-
+# Save images
 ggsave("images//3_plot_life_exp_1.png", plot_life_exp_1, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
-
 ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 96,
        width = 7, height = 6.3, units = c("in"))
 ```

@@ -167,7 +167,7 @@ df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.
 # Save all the unique causes as an atomic vector for later use
 df_11bs$`Underlying cause of death (time series classification)` |> unique() -> causes
 
-# Renaming columns and filtering out totals
+# Rename columns and filter out totals
 df_11bs |>
   rename(Cause = "Underlying cause of death (time series classification)",
          Sex = Gender) |>
@@ -305,6 +305,8 @@ for (i in seq(from = 1, to = length(causes))) {
 
 # Which months have the most deaths? -------------------------------------
 
+# 12ah -- Deaths by month, 1945-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ah.px/
 px_12ah <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ah.px",
  query = list("Tapahtumakuukausi" = c("M01", "M02", "M03", "M04", "M05", "M06",
@@ -313,8 +315,10 @@ px_12ah <- pxweb_get(url =
 
 df_12ah <- as_tibble(as.data.frame(px_12ah, column.name.type = "text", variable.value.type = "text"))
 
+# Vector of average days / month to calculate daily stats
 avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
+# Add daily deaths, short name for month and decade columns
 df_12ah |>
   rename(Month = "Month of occurrence") |>
   mutate(Year = as.integer(Year),
@@ -325,6 +329,7 @@ df_12ah |>
          Decade = str_replace_all(Decade, "1940s", "1945-1949")
          ) -> df_12ah
 
+# Calculate mean of daily deaths by month for 1945-2021 and create a plot
 df_12ah |>
   group_by(Month) |>
   summarise(Deaths_daily = round(mean(Deaths_daily))) |>
@@ -336,6 +341,7 @@ df_12ah |>
   labs(y = NULL,
        x = NULL) -> daily_deaths_month_plot
 
+# Create the daily deaths by month by decade plots
 df_12ah |>
   filter(Decade != "2020s") |>
   group_by(Decade, Month_short) |>
@@ -353,31 +359,36 @@ df_12ah |>
        caption = "source: Tilastokeskus 12ah -- Deaths by month, 1945-2021"
        ) -> daily_deaths_decade_plot
 
+# Combine the created plots and add annotations
 plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot +
   plot_annotation(title = "Daily deaths in Finland by month (1945-2021)",
                   subtitle = "Death rates are higher in winter months")
 
+# Save as a picture
 ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
 
 # Life expectancy at birth---------------- -----------------------------------
 
-px_12am <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
-query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
+# Notice: To create the second plots (region) in this section we are
+# reusing df_region_map (created in the section Region and cause (2016 - 2020))
 
+# 12am -- Life expectancy at birth by sex, 1751-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12am.px/
 px_12am <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12am.px",
 query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 
 df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
 
+# Some years are in the form of "1751-1760", so we edit those to integers
 df_12am <- df_12am |>
   rename(Life_exp = "Life expectancy at birth, years") |>
   mutate(Year = str_sub(Year, 1, 4)) |>
   mutate(Year = as.integer(Year),
          Sex = as_factor(Sex))
 
+# Create the first of four plots
 ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
@@ -388,14 +399,17 @@ ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
   labs(subtitle = "Life expectancy by year (1751-2021)", y = "age", x = "year"
        ) -> life_plot_1
 
-# Survivors of 100k born alive
-
+# 12ap -- Life table by age and sex, 1986-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ap.px/
+# This is used to to create the next three plots
 px_12ap <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ap.px",
-query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
+query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*"),
+             "Ikä" = c("*")))
 
 df_12ap <- as_tibble(as.data.frame(px_12ap, column.name.type = "text", variable.value.type = "text"))
 
+# Calculate yearly means from 1986-2020 data   
 df_12ap <- df_12ap |>
   mutate(Age = as.integer(Age),
          Year = as.integer(Year),
@@ -409,34 +423,29 @@ df_12ap <- df_12ap |>
             Death_prob = mean(Death_prob)) |>
   mutate(Death_prob = Death_prob / 10) # Changing to percent 
 
-ggplot(df_12ap, aes(Age, Life_exp, color = Sex)) +
-  geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = "none") +
-  labs(subtitle = "Remaining life expectancy (1986-2020)", y = "years", x = "age"
-  ) -> life_plot_2
+# Function used to create the remaining three plots
+create_plot <- function(ycol, ylab, subtitle_1) {
+  ggplot(df_12ap, aes(Age, !!sym(ycol), color = Sex)) +
+    geom_line(size = 1.1, na.rm = T) +
+    scale_colour_hue(direction = -1) +
+    scale_y_continuous(labels = scales::label_comma()) +
+    theme(legend.position = "none") +
+    labs(subtitle = subtitle_1, y = ylab, x = "age"
+    )
+}
 
-ggplot(df_12ap, aes(Age, Survivors, color = Sex)) +
-  geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  scale_y_continuous(labels = scales::label_comma()) +
-  theme(legend.position = "none") +
-  labs(subtitle = "Survival of 100,000 born alive (1986-2020)", y = "survivors", x = "age"
-  ) -> life_plot_3
+# Create the plots 2-4
+create_plot("Life_exp", "years", "Remaining life expectancy (1986-2020)") -> life_plot_2
+create_plot("Survivors", "survivors", "Survival of 100,000 born alive (1986-2020)") -> life_plot_3
+create_plot("Death_prob", "percent", "Yearly probability of death (1986-2020)") -> life_plot_4
 
-ggplot(df_12ap, aes(Age, Death_prob, color = Sex)) +
-  geom_line(size = 1.1, na.rm = T) +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = "none") +
-  labs(subtitle = "Yearly probability of death (1986-2020)", y = "percent", x = "age"
-  ) -> life_plot_4
-
-
+# Combine and annotate plots 1-4
 plot_life_exp_1 <- (life_plot_1 / life_plot_2 | life_plot_3 / life_plot_4) +
   plot_annotation(title = "Longetivity by sex",
                   caption = "sources: Tilastokeskus 12am (1751-2021) & 12ap (1986-2020)")
 
-# Life expectancy by region
+# 12an -- Life expectancy at birth by sex and region
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12an.px/
 px_12an <- pxweb_get(url = 
                        "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12an.px",
                      query = list(
@@ -448,13 +457,16 @@ px_12an <- pxweb_get(url =
 
 df_12an <- as_tibble(as.data.frame(px_12an, column.name.type = "text", variable.value.type = "text"))
 
+# Remove ID from region name
 df_12an <- df_12an |> 
   rename(Life_exp = "Life expectancy at birth, years") |>
   mutate(Region = str_remove_all(Region, "MK.. "))
 
+# Add map. Notice: df_region_map was created in the section Region and cause (2016 - 2020)
 df_life_region <- df_region_map |>
   left_join(df_12an, by = c("Region"))
 
+# Create Females plot
 df_life_region |>
   filter(Sex == "Females") |>
   ggplot() + 
@@ -470,6 +482,7 @@ df_life_region |>
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_f_plot
 
+# Create Males plot
 df_life_region |>
   filter(Sex == "Males") |>
   ggplot() + 
@@ -484,18 +497,16 @@ df_life_region |>
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_m_plot
 
-
+# Combine and annotate region plots
 plot_life_exp_2 <- life_exp_region_f_plot + life_exp_region_m_plot +
   plot_annotation(title = "Life expectancy by region (2018-2020)",
     caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region")
 
-
+# Save images
 ggsave("images//3_plot_life_exp_1.png", plot_life_exp_1, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
-
 ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 96,
        width = 7, height = 6.3, units = c("in"))
-
 
 # Overview of deaths in Finland -------------------------------------------
 
