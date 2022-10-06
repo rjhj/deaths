@@ -6,6 +6,7 @@ library(scales) # for label_comma()
 library(lubridate) # for ym()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
+library(paletteer) # for scale_fill_paletteer_d()
 
 # History ------------------------------------------------------------------- 
 
@@ -47,7 +48,7 @@ ggplot(df_12at, aes(Year, Deaths)) +
 
 # Function to create the three smaller plots
 create_graph <- function(df, y_stat, subtitle) {
-  ggplot(df, aes(Year, {{y_stat}})) + # curly-curly, because column name passed as variable
+  ggplot(df, aes(Year, {{y_stat}})) +
     geom_line(color = "#505085") +
     scale_x_continuous(breaks = seq(1750, 2020, 50)) +
     scale_y_continuous(labels = scales::label_comma()) +
@@ -425,7 +426,7 @@ df_12ap <- df_12ap |>
 
 # Function used to create the remaining three plots
 create_plot <- function(ycol, ylab, subtitle_1) {
-  ggplot(df_12ap, aes(Age, !!sym(ycol), color = Sex)) +
+  ggplot(df_12ap, aes(Age, .data[[ycol]], color = Sex)) +
     geom_line(size = 1.1, na.rm = T) +
     scale_colour_hue(direction = -1) +
     scale_y_continuous(labels = scales::label_comma()) +
@@ -677,24 +678,114 @@ deaths_cause |>
 
 # Suicides ----------------------------------------------------------------
 
+# 11by -- Suicides by age and gender, 1921-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11by.px/
 url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11by.px"
 query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"), "Ikä" = c("*"))
-px_data <- pxweb_get(url = url, query = query)
-suicides <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+px_11by <- pxweb_get(url = url, query = query)
+df_11by <- as_tibble(as.data.frame(px_11by, column.name.type = "text", variable.value.type = "text"))
 
-suicides <- suicides |>
-  rename(age = Age, year = Year, sex = Gender, suicides = Suicides) |>
-  mutate(year = as.integer(year),
-         sex = as_factor(sex))
-
-suicides |>
-  filter(age == "Total") |>
-  ggplot(aes(year, suicides, color = sex)) +
+df_11by |>
+  filter(Age == "Total") |>
+  mutate(Year = as.integer(Year),
+         Sex = as_factor(Gender)) |>
+  ggplot(aes(Year, Suicides, color = Sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
   theme(legend.position = c(0.2, 0.8),
-        legend.background = element_blank()) +
+        legend.background = element_blank(),
+        legend.title = element_blank()) +
   labs(subtitle = "Suicides / year (1921 - 2020)",
        y = NULL,
        x = NULL)
+
+getPalette = colorRampPalette(brewer.pal(9, "Set1"))
+?scale_fill_gradient2
+
+ggplot(mtcars) + 
+  geom_histogram(aes(factor(hp), fill=factor(hp))) + 
+  scale_fill_manual(values = getPalette(colourCount))
+
+df_11by |>
+  filter(Age != "Total") |>
+  group_by(Age, Gender) |>
+  summarise(Suicides = sum(Suicides)) |>
+  mutate(Age = as_factor(Age),
+         Sex = as_factor(Gender)) |>
+  ggplot(aes(Sex, Suicides, fill = Age)) +
+  geom_col(position = "dodge") +
+  paletteer::scale_fill_paletteer_d("ggthemes::manyeys") +
+  guides(fill = guide_legend(ncol = 2, byrow = F)) +
+  theme(legend.position = c(0.2, 0.8),
+        legend.background = element_blank(),
+        legend.title = element_blank()) +
+  labs(subtitle = "Suicides by age and gender (1921 - 2020)",
+       y = NULL,
+       x = NULL)
   
+
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_12z6.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Kuukausi"=c("*"),
+             "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"))
+px_data <- pxweb_get(url = url, query = query)
+deaths_cause <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+
+deaths_cause <- deaths_cause |>
+  rename(month = Kuukausi,
+         cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
+         sex = Sukupuoli,
+         deaths = Kuolleet) |>
+  mutate(sex = if_else(sex == "Miehet", "males", "females")) |>
+  mutate(sex = as_factor(sex))
+
+  
+# Gender and cause differences -----------------------------------------
+
+# 11bv -- Deaths by underlying cause of death (ICD-10, 3-character level), age and gender, 1998-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bv.px/
+px_11bv <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bv.px",
+query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*"),
+  "Ikä" = c("*"), "Tilaston peruskuolemansyy (ICD-10, 3-merkkitaso)" = c("*")))
+
+df_11bv <- as_tibble(as.data.frame(px_11bv, column.name.type = "text", variable.value.type = "text"))
+
+unique(df_11bv$Age)
+
+df_11bv |>
+  rename(Cause = "Underlying cause of death (ICD-10, 3-character level)") |>
+  filter(!is.na(Deaths)) |>
+  filter(Age != "Total") |>
+  group_by(Cause, Gender, Age) |>
+  summarise(Deaths = sum(Deaths)) |>
+  mutate(Age_group = case_when(Age %in% c("0", "1 - 4", "5 - 9",
+                                          "10 - 14", "15 - 19") ~ "0 - 19",
+                               Age %in% c("20 - 24", "25 - 29",
+                                          "30 - 34", "35 - 39") ~ "20 - 39",
+                               Age %in% c("40 - 44", "45 - 49",
+                                          "50 - 54", "55 - 59") ~ "40 - 59",
+                               Age %in% c("60 - 64", "65 - 69",
+                                          "70 - 74", "75 - 79", "80 - 84",
+                                          "85 - 89", "90 - 94", "95 -") ~ "60 - ")) |>
+  group_by(Cause, Gender, Age_group) |>
+  summarise(Deaths = sum(Deaths)) |>
+  pivot_wider(names_from = Gender, values_from = Deaths) -> df_11bv
+
+df_11bv |>
+  filter((Females + Males) > 50,
+         Females > 1,
+         Males > 1) |>
+  mutate(F_percent = Females / (Females + Males),
+         M_percent = Males / (Females +  Males)) |>
+  group_by(Age_group) |>
+  slice_max(order_by = M_percent, n = 10) |> View() 
+  
+  slice_max()
+
+df_11bv |>
+  arrange(desc(F_to_M_ratio))  |> View()
+
+df_11bv |>
+  arrange(desc(M_to_F_ratio)) |> View()
+
+# Jos sittenkin latailis ikäjakautuman mukaan, esim. neljä eri ryhmää.
