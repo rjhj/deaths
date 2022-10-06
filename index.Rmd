@@ -11,6 +11,7 @@ output:
 editor_options: 
   chunk_output_type: inline
 ---
+<body style="background-color:#F2F4F4;">
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
@@ -328,7 +329,7 @@ for (i in seq(from = 1, to = length(causes))) {
 }
 ```
 
-Deaths in this section were calculated as sums of deaths for a five year period between 2016 and 2020 for each region. Expected deaths were calculated by comparing all deaths in Finland for the same period and standardizing them for each region by age, sex and population. Then deaths were divided by expected deaths to get Standardized Mortality Ratio (SMR). SMR over 1 is represented with red, around 1 with white and under 1 with blue.
+Deaths in this section were calculated as sums of deaths for a five year period between 2016 and 2020 for each region. Expected deaths were calculated by comparing all deaths in Finland for the same period and standardized for each region by age, sex and population. Then deaths were divided by expected deaths to get Standardized Mortality Ratio (SMR). SMR over 1 is represented with red, around 1 with white and under 1 with blue.
 
 Sources:
 
@@ -356,7 +357,6 @@ Sources:
 ![](images/region/5.png)
 ![](images/region/6.png)
 ![](images/region/7.png)
-
 </div>
 
 ### 4-22 - Neoplasms (cancers)

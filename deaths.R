@@ -335,7 +335,7 @@ df_12ah |>
   group_by(Month) |>
   summarise(Deaths_daily = round(mean(Deaths_daily))) |>
   ggplot(aes(Month, Deaths_daily)) +
-  geom_col() +
+  geom_col(fill = "#393b15") +
   geom_text(aes(label = Deaths_daily), vjust = 1.5,
             color = "white", size = 4) +
   theme_bw() +
@@ -348,7 +348,7 @@ df_12ah |>
   group_by(Decade, Month_short) |>
   summarise(Deaths_daily = round(mean(Deaths_daily))) |>
   ggplot(aes(Month_short, Deaths_daily)) +
-  geom_col() +
+  geom_col(fill = "#393b15") +
   theme_bw() +
   facet_wrap(vars(Decade), nrow = 2) +
   geom_text(aes(label = Deaths_daily),
