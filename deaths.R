@@ -358,7 +358,7 @@ df_12ah |>
        y = NULL,
        x = NULL,
        caption = "source: Tilastokeskus 12ah -- Deaths by month, 1945-2021"
-       ) -> daily_deaths_decade_plot
+       ) #-> daily_deaths_decade_plot
 
 # Combine the created plots and add annotations
 plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot +
@@ -699,13 +699,6 @@ df_11by |>
        y = NULL,
        x = NULL)
 
-getPalette = colorRampPalette(brewer.pal(9, "Set1"))
-?scale_fill_gradient2
-
-ggplot(mtcars) + 
-  geom_histogram(aes(factor(hp), fill=factor(hp))) + 
-  scale_fill_manual(values = getPalette(colourCount))
-
 df_11by |>
   filter(Age != "Total") |>
   group_by(Age, Gender) |>
@@ -719,10 +712,62 @@ df_11by |>
   theme(legend.position = c(0.2, 0.8),
         legend.background = element_blank(),
         legend.title = element_blank()) +
-  labs(subtitle = "Suicides by age and gender (1921 - 2020)",
+  labs(subtitle = "Suicides by age (total from 1921 - 2020)",
        y = NULL,
        x = NULL)
   
+# 12z6 -- Deaths by month, underlying cause of death and gender, 1971M01-2020M12
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_12z6.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_12z6.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Kuukausi"=c("*"),
+             "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("50"))
+px_12z6_50 <- pxweb_get(url = url, query = query)
+df_12z6_50 <- as_tibble(as.data.frame(px_12z6_50, column.name.type = "text", variable.value.type = "text"))
+
+
+df_12z6_50 |>
+  separate(Month, into = c("Year", "Month"), sep = "M") |>
+  group_by(Month, Gender) |>
+  summarise(Deaths = mean(Deaths)) |>
+  ungroup() |>
+  mutate(Month = case_when(Month == "01" ~ "Jan",
+                           Month == "02" ~ "Feb",
+                           Month == "03" ~ "Mar",
+                           Month == "04" ~ "Apr",
+                           Month == "05" ~ "May",
+                           Month == "06" ~ "Jun",
+                           Month == "07" ~ "Jul",
+                           Month == "08" ~ "Aug",
+                           Month == "09" ~ "Sep",
+                           Month == "10" ~ "Oct",
+                           Month == "11" ~ "Nov",
+                           Month == "12" ~ "Dec"),
+         Month = as_factor(Month),
+         Days_in_month = rep(c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31), each = 2),
+         Deaths_daily = round(Deaths / avg_days_per_month, 2)) -> df_12z6_50
+
+
+create_plot <- function(gender) {
+  df_12z6_50 |>
+    filter(Gender == gender) |>
+    ggplot(aes(Month, Deaths_daily)) +
+    geom_col(fill = "#393b15") +
+    geom_text(aes(label = Deaths_daily), vjust = 1.5,
+              color = "white", size = 4) +
+    theme_bw() +
+    labs(subtitle = gender,
+         y = NULL,
+         x = NULL) 
+}
+
+create_plot("Females") -> F_plot
+create_plot("Males") -> M_plot
+
+(F_plot / M_plot) +
+plot_annotation(title = "Daily suicides per month (Jan 1971 - Dec 2020)",
+                caption = "source: Tilastokeskus 2z6 -- Deaths by month, underlying cause of death and gender")
+
+
 
 url = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_12z6.px"
 query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Kuukausi"=c("*"),
