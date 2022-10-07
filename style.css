@@ -1,0 +1,13 @@
+
+#table-of-contents {
+    width: 200px !important;
+}
+
+#content {
+    margin-left: 200px !important;
+    max-width: 1100px !important;
+}
+
+#sidebar {
+    width: 200px !important;
+}

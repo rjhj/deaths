@@ -1,28 +1,40 @@
 ---
 title: "Visualizing deaths in Finland"
 date: "`r Sys.Date()`"
-output:
-  html_document:
-    toc: true
-    toc_depth: 3
-    theme: united
-    highlight: tango
+output: 
+  rmdformats::readthedown:
     code_folding: hide
+    css: "style.css"
 editor_options: 
   chunk_output_type: inline
 ---
-<body style="background-color:#F2F4F4;">
+
+<!--body style="background-color:#F2F4F4;"-->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 ```
 
-## Libraries
+## Introduction
+
+This work visualizes different statistics related to deaths in Finland. Death is a relevant topic to every human, but it's often hard to intuitively understand how and when people usually die. Hopefully these visualizations can help to create a more accurate understanding on the topic.
+
+All of the data is from [Statistics Finland's free-of-charge statistical databases](https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/).
+
+These plots were created using R's ggplot2, which is a part of [Tidyverse](https://www.tidyverse.org/).
+
+Click the *Code* buttons to see the code.
+
 ```{r Libraries, message=FALSE}
+# Main libraries, used in each section
 library(tidyverse)
 library(patchwork)
 library(pxweb) # for pxweb_get()
+
+# Supporting libraries
+# When these are used I have included the package name,
+# e.g., geofi::get_municipalities()
 library(geofi) # for get_municipalities()
 library(scales) # for label_comma()
 library(data.table) # for fread()
@@ -31,6 +43,7 @@ library(paletteer) # for scale_fill_paletteer_d()
 ```
 
 ## History
+
 ```{r History}
 # 12at -- Vital statistics and population, 1749-2021
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12at.px/
@@ -109,7 +122,8 @@ ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
 
 ![](images/1_plot_yearly.png)
 
-## Region and cause (2016 - 2020)
+## Region and cause
+
 ```{r Region_and_cause}
 # Get the correspondence table between municipalities and regions in 2020
 # https://www.stat.fi/en/luokitukset/corrmaps/kunta_1_20200101%23maakunta_1_20200101/
@@ -346,12 +360,16 @@ Sources:
 
 [Municipality-based statistical units for the map](https://www.stat.fi/org/avoindata/paikkatietoaineistot/kuntapohjaiset_tilastointialueet_en.html)
 
-
-### 0-3 - Totals and certain infectious diseases
-<button class="btn btn-light" data-toggle="collapse" data-target="#Block1"> Show/Hide </button>  
-<div id="Block1" class="collapse in">  
-
+### 0 - Total
+<button class="btn btn-light" data-toggle="collapse" data-target="#Block0">
+Show/Hide
+</button>
+<div id="Block0" class="collapse in">  
 ![](images/region/1.png)
+</div>
+### 0-3 - Total diseases and certain infectious diseases
+<button class="btn btn-light" data-toggle="collapse" data-target="#Block1"> Show/Hide </button>  
+<div id="Block1" class="collapse">  
 ![](images/region/2.png)
 ![](images/region/3.png)
 ![](images/region/4.png)
@@ -359,7 +377,6 @@ Sources:
 ![](images/region/6.png)
 ![](images/region/7.png)
 </div>
-
 ### 4-22 - Neoplasms (cancers)
 <button class="btn btn-light" data-toggle="collapse" data-target="#Block2"> Show/Hide </button>  
 <div id="Block2" class="collapse">  
@@ -385,7 +402,6 @@ Sources:
 ![](images/region/27.png)
 ![](images/region/28.png)
 </div>
-
 ### 23-30 - Endocrine, nutritional, metabolic, circulatory
 <button class="btn btn-light" data-toggle="collapse" data-target="#Block3"> Show/Hide </button>  
 <div id="Block3" class="collapse">  
@@ -400,7 +416,6 @@ Sources:
 ![](images/region/37.png)
 ![](images/region/38.png)
 </div>
-
 ### 31-35 - Diseases of the respiratory system
 <button class="btn btn-light" data-toggle="collapse" data-target="#Block4"> Show/Hide </button>  
 <div id="Block4" class="collapse">  
@@ -411,8 +426,7 @@ Sources:
 ![](images/region/43.png)
 ![](images/region/44.png)
 </div>
-
-### 36-39 - Other diseases 
+### 36-39 - Other diseases
 <button class="btn btn-light" data-toggle="collapse" data-target="#Block5"> Show/Hide </button>  
 <div id="Block5" class="collapse">  
 ![](images/region/45.png)
@@ -420,8 +434,7 @@ Sources:
 ![](images/region/47.png)
 ![](images/region/48.png)
 </div>
-
-### 40-54 Alcohol-related, accidents, violence and unknown 
+### 40-54 Alcohol-related, accidents, violence and unknown
 <button class="btn btn-light" data-toggle="collapse" data-target="#Block6"> Show/Hide </button>  
 <div id="Block6" class="collapse">  
 ![](images/region/49.png)
@@ -444,6 +457,7 @@ Sources:
 </div>
 
 ## By month
+
 ```{r Months}
 # 12ah -- Deaths by month, 1945-2021
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ah.px/
@@ -511,8 +525,8 @@ ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
 
 ![](images/2_plot_months.png)
 
-
 ## Life expectancy by sex
+
 ```{r Longetivity}
 # Notice: To create the second plots (region) in this section we are
 # reusing df_region_map (created in the section Region and cause (2016 - 2020))
@@ -653,10 +667,10 @@ ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 9
        width = 7, height = 6.3, units = c("in"))
 ```
 
-![](images/3_plot_life_exp_1.png)
-![](images/3_plot_life_exp_2.png)
+![](images/3_plot_life_exp_1.png) ![](images/3_plot_life_exp_2.png)
 
 ## Suicides
+
 ```{r Suicides}
 # 11by -- Suicides by age and gender, 1921-2020
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11by.px/
@@ -825,6 +839,4 @@ ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
 ```
 
-![](images/4_plot_s_1.png)
-![](images/4_plot_s_2.png)
-![](images/4_plot_s_3.png)
+![](images/4_plot_s_1.png) ![](images/4_plot_s_2.png) ![](images/4_plot_s_3.png)

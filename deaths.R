@@ -1,11 +1,17 @@
+# Main libraries, used in each section
 library(tidyverse)
 library(patchwork)
 library(pxweb) # for pxweb_get()
+
+# Supporting libraries
+# When these are used I have included the package name,
+# e.g., geofi::get_municipalities()
 library(geofi) # for get_municipalities()
 library(scales) # for label_comma()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
 library(paletteer) # for scale_fill_paletteer_d()
+library(rmdformats)
 
 # History ------------------------------------------------------------------- 
 # 12at -- Vital statistics and population, 1749-2021
