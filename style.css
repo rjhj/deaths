@@ -1,13 +1,13 @@
-
-#table-of-contents {
-    width: 200px !important;
+#sidebar {
+    width: 200px;
 }
 
 #content {
-    margin-left: 200px !important;
-    max-width: 1100px !important;
+    margin-left: 200px;
+    max-width: 1100px;
 }
 
-#sidebar {
-    width: 200px !important;
+div.col-md-12 .pull-right {
+  float: left !important;
+  margin-left: 20px;
 }

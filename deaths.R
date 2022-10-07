@@ -96,7 +96,8 @@ ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
 region_keys_2020 <- data.table::fread("kunta_1_20200101%23maakunta_1_20200101.csv", encoding = "Latin-1",
                           col.names = c("id_1", "Municipality", "id_2", "Region"), header = F)
 
-# 11rf -- Population according to age (1-year) and sex by area and the regional division of each statistical reference year, 2003-2021
+# 11rf -- Population according to age (1-year) and sex by area and
+# the regional division of each statistical reference year, 2003-2021
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__vaerak/statfin_vaerak_pxt_11rf.px/
 px_11rf <- pxweb_get(url = 
                        "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/vaerak/statfin_vaerak_pxt_11rf.px",
