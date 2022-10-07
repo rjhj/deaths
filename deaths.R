@@ -3,13 +3,11 @@ library(patchwork)
 library(pxweb) # for pxweb_get()
 library(geofi) # for get_municipalities()
 library(scales) # for label_comma()
-library(lubridate) # for ym()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
 library(paletteer) # for scale_fill_paletteer_d()
 
 # History ------------------------------------------------------------------- 
-
 # 12at -- Vital statistics and population, 1749-2021
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12at.px/
 px_12at <- pxweb_get(url = 
@@ -19,10 +17,11 @@ query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
 df_12at <- as_tibble(as.data.frame(px_12at, column.name.type = "text", variable.value.type = "text"))
 
 # Calculate death rate
-df_12at <- df_12at |>
+df_12at |>
   rename(Live_births = "Live births") |>
   mutate(Year = as.integer(Year),
-         Death_rate = Deaths / Population * 100000)
+         Death_rate = Deaths / Population * 100000
+         ) -> df_12at 
 
 # Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
 labels = tribble(
@@ -242,14 +241,14 @@ df_11rf |>
 df_region_map <- geofi::get_municipalities(year = 2020, scale = 4500)
 
 # Grouping by regions, because we don't need individual municipalities or most other columns
-df_region_map <- df_region_map |>
+df_region_map |>
   group_by(maakunta_name_en) |>
   summarise() |>
-  rename(Region = maakunta_name_en)
+  rename(Region = maakunta_name_en) -> df_region_map
 
 # Add main df to the map df
-df_cause_region <- df_region_map |>
-  left_join(df_11rf, by = "Region")
+df_region_map |>
+  left_join(df_11rf, by = "Region") -> df_cause_region
 
 # Function: Creates a plot and a table for the given cause of death
 create_plot <- function(cause_en){
@@ -358,7 +357,7 @@ df_12ah |>
        y = NULL,
        x = NULL,
        caption = "source: Tilastokeskus 12ah -- Deaths by month, 1945-2021"
-       ) #-> daily_deaths_decade_plot
+       ) -> daily_deaths_decade_plot
 
 # Combine the created plots and add annotations
 plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot +
@@ -382,12 +381,12 @@ query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 
 df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
 
-# Some years are in the form of "1751-1760", so we edit those to integers
-df_12am <- df_12am |>
+# Some years are in the form of "1751-1760", so mutate them to integers
+df_12am |>
   rename(Life_exp = "Life expectancy at birth, years") |>
   mutate(Year = str_sub(Year, 1, 4)) |>
   mutate(Year = as.integer(Year),
-         Sex = as_factor(Sex))
+         Sex = as_factor(Sex)) -> df_12am
 
 # Create the first of four plots
 ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
@@ -411,7 +410,7 @@ query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*"),
 df_12ap <- as_tibble(as.data.frame(px_12ap, column.name.type = "text", variable.value.type = "text"))
 
 # Calculate yearly means from 1986-2020 data   
-df_12ap <- df_12ap |>
+df_12ap |>
   mutate(Age = as.integer(Age),
          Year = as.integer(Year),
          Sex = as_factor(Sex)) |>
@@ -422,7 +421,8 @@ df_12ap <- df_12ap |>
   summarise(Life_exp = mean(Life_exp),
             Survivors = mean(Survivors),
             Death_prob = mean(Death_prob)) |>
-  mutate(Death_prob = Death_prob / 10) # Changing to percent 
+  mutate(Death_prob = Death_prob / 10 # Changing to percent 
+         ) -> df_12ap
 
 # Function used to create the remaining three plots
 create_plot <- function(ycol, ylab, subtitle_1) {
@@ -431,8 +431,7 @@ create_plot <- function(ycol, ylab, subtitle_1) {
     scale_colour_hue(direction = -1) +
     scale_y_continuous(labels = scales::label_comma()) +
     theme(legend.position = "none") +
-    labs(subtitle = subtitle_1, y = ylab, x = "age"
-    )
+    labs(subtitle = subtitle_1, y = ylab, x = "age")
 }
 
 # Create the plots 2-4
@@ -459,13 +458,13 @@ px_12an <- pxweb_get(url =
 df_12an <- as_tibble(as.data.frame(px_12an, column.name.type = "text", variable.value.type = "text"))
 
 # Remove ID from region name
-df_12an <- df_12an |> 
+df_12an |> 
   rename(Life_exp = "Life expectancy at birth, years") |>
-  mutate(Region = str_remove_all(Region, "MK.. "))
+  mutate(Region = str_remove_all(Region, "MK.. ")) -> df_12an
 
 # Add map. Notice: df_region_map was created in the section Region and cause (2016 - 2020)
-df_life_region <- df_region_map |>
-  left_join(df_12an, by = c("Region"))
+df_region_map |>
+  left_join(df_12an, by = c("Region")) -> df_life_region
 
 # Create Females plot
 df_life_region |>
@@ -478,7 +477,7 @@ df_life_region |>
         legend.background = element_blank(),
         legend.key.size = unit(0.4, "in"),
         legend.text = element_text(size = 9),
-        panel.background = element_rect(colour = "#CC79A7"),
+        panel.background = element_rect(colour = "#FF0000FF"),
         plot.margin = margin(r = 1, unit = "cm"),
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_f_plot
@@ -494,7 +493,7 @@ df_life_region |>
         legend.background = element_blank(),
         legend.key.size = unit(0.4, "in"),
         legend.text = element_text(size = 9),
-        panel.background = element_rect(colour = "#0072B2"),
+        panel.background = element_rect(colour = "#00FFFFFF"),
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_m_plot
 
@@ -509,174 +508,7 @@ ggsave("images//3_plot_life_exp_1.png", plot_life_exp_1, device = "png", dpi = 9
 ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 96,
        width = 7, height = 6.3, units = c("in"))
 
-# Overview of deaths in Finland -------------------------------------------
-
-
-
-
-
-
-
-
-
-
-url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/vaerak/statfin_vaerak_pxt_11rb.px"
-query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("vaesto"), "Vuosi"=c("*"))
-px_data <- pxweb_get(url = url, query = query)
-df <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
-
-url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12af.px"
-query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"))
-px_data <- pxweb_get(url = url, query = query)
-deaths <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
-
-
-df <- df |>
-  filter(Year != "1750") |>
-  left_join(deaths) |>
-  rename(population = "Population 31 Dec",
-         year = Year,
-         sex = Sex,
-         deaths = Deaths) |>
-  mutate(year = as.integer(year),
-         sex = as_factor(sex))
-
-# Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
-labels = tribble(
-  ~year, ~deaths, ~label,
-  1868,  137720, "Finnish famine (1866–1868)",
-  1918,  95102,  "Civil War (1918)",
-  1948,  71846,  "Winter, Continuation &\nLapland Wars (1939–45)",
-  1833,  63738,  "Smallpox, dysentery\n& influenza (1833)",
-  1806,  53942,  "Finnish War (1808-09)"
-)
-
-df_year_deaths <- df |>
-  group_by(year) |>
-  summarise(deaths = sum(deaths), population = sum(population))
-
-
-ggplot(df_year_deaths, aes(year, deaths)) +
-  geom_line(size = 1.1) +
-  scale_y_continuous(labels = scales::label_comma()) +
-  geom_text(aes(label=label), size=3.5, vjust = -0.5, data=labels) +
-  labs(title = "Deaths in Finland (1751 - 2021)",
-       subtitle = "In 2021 there were 57,659 deaths in Finland, highest since 1940s",
-       y = NULL,
-       x = NULL) -> p1
-
-
-df_year_deaths |>
-  ggplot(aes(year, population)) +
-  geom_line(size = 1.1) +
-  scale_y_continuous(labels = scales::label_comma()) +
-  labs(subtitle = "Population",
-       y = NULL,
-       x = NULL) -> p2
-
-df_year_deaths |>
-  mutate(death_rate = round(deaths / population * 100000)) |>
-  ggplot(aes(year, death_rate)) +
-  geom_line(size = 1.1) +
-  labs(subtitle = "Deaths / 100,000 people",
-       y = NULL,
-       x = NULL) -> p3
-
-p1 /
-(p2 | p3)
-
-
-df |>
-  filter(year >= 1920) |>
-  ggplot(aes(year, deaths, color = sex)) +
-  geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  scale_y_continuous(labels = scales::label_comma()) +
-  theme(legend.position = c(0.8, 0.8),
-        legend.background = element_blank()) +
-  labs(title = "Deaths by sex (1920 - 2021)",
-       subtitle = "Lots of male deaths during the war time",
-       y = NULL,
-       x = NULL) -> p4
-
-p4
-
-url = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_12z6.px"
-query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Kuukausi"=c("*"),
-             "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"))
-px_data <- pxweb_get(url = url, query = query)
-deaths_cause <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
-
-deaths_cause <- deaths_cause |>
-  rename(month = Kuukausi,
-         cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
-         sex = Sukupuoli,
-         deaths = Kuolleet) |>
-  mutate(sex = if_else(sex == "Miehet", "males", "females")) |>
-  mutate(sex = as_factor(sex))
-         
-
-avg_days_per_month = c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-
-deaths_cause |>
-  mutate(month = str_remove_all(month, "....M")) |>
-  filter(cause == "50 Itsemurhat (X60-X84, Y870)") |>
-  group_by(month) |>
-  summarise(deaths = mean(deaths)) |>
-  mutate(daily_deaths = deaths / avg_days_per_month) |>
-  ggplot(aes(month, daily_deaths)) +
-  geom_col() +
-  labs(title = "Daily suicides per month (data: Jan 1971 - Dec 2020)",
-       subtitle = "More suicides occur during summer months",
-       y = NULL,
-       x = NULL)
-
-
-deaths_cause |>
-  mutate(month = lubridate::ym(month))
-
-deaths_cause |>
-  filter(cause == "50 Itsemurhat (X60-X84, Y870)") |>
-  ggplot(aes(month, deaths, color = sex)) +
-  geom_point(alpha = 0.5) +
-  geom_line(alpha = 0.5) +
-  geom_smooth(size = 2, method = "loess", formula = "y ~ x") +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.8, 0.8),
-        legend.background = element_blank()) +
-  labs(subtitle = "Suicides monthly by sex (Jan 1971 - Dec 2020)",
-       y = NULL,
-       x = NULL)
-
-deaths_cause |>
-  filter(cause == "25 Dementia, Alzheimerin tauti (F01, F03, G30, R54)") |>
-  ggplot(aes(month, deaths, color = sex)) +
-  geom_point(alpha = 0.5) +
-  geom_line(alpha = 0.5) +
-  geom_smooth(size = 2, method = "loess", formula = "y ~ x") +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.2, 0.8),
-        legend.background = element_blank()) +
-  labs(subtitle = "Dementia, Alzheimer's deaths monthly by sex (Jan 1971 - Dec 2020)",
-       y = NULL,
-       x = NULL)
-
-deaths_cause |>
-  filter(cause == "42-53 Tapaturmat ja väkivalta pl. tapaturmainen alkoholimyrkytys (V01-X44, X46-Y89)") |>
-  ggplot(aes(month, deaths, color = sex)) +
-  geom_point(alpha = 0.5) +
-  geom_line(alpha = 0.5) +
-  geom_smooth(size = 2, method = "loess", formula = "y ~ x") +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.2, 0.8),
-        legend.background = element_blank()) +
-  labs(subtitle = ".... deaths monthly by sex (Jan 1971 - Dec 2020)",
-       y = NULL,
-       x = NULL)
-
-
-
-# Suicide  ----------------------------------------------------------------
+# Suicides  ----------------------------------------------------------------
 
 # 11by -- Suicides by age and gender, 1921-2020
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11by.px/
@@ -685,6 +517,7 @@ query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"), "Ikä" 
 px_11by <- pxweb_get(url = url, query = query)
 df_11by <- as_tibble(as.data.frame(px_11by, column.name.type = "text", variable.value.type = "text"))
 
+# Create the yearly plot
 df_11by |>
   filter(Age == "Total") |>
   mutate(Year = as.integer(Year),
@@ -692,13 +525,14 @@ df_11by |>
   ggplot(aes(Year, Suicides, color = Sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.2, 0.8),
+  theme(legend.position = c(0.07, 0.9),
         legend.background = element_blank(),
         legend.title = element_blank()) +
-  labs(subtitle = "Suicides / year (1921 - 2020)",
+  labs(subtitle = "By year",
        y = NULL,
-       x = NULL)
+       x = NULL) -> s_plot_1
 
+# Create the age group plot
 df_11by |>
   filter(Age != "Total") |>
   group_by(Age, Gender) |>
@@ -709,13 +543,78 @@ df_11by |>
   geom_col(position = "dodge") +
   paletteer::scale_fill_paletteer_d("ggthemes::manyeys") +
   guides(fill = guide_legend(ncol = 2, byrow = F)) +
-  theme(legend.position = c(0.2, 0.8),
+  theme(legend.position = c(0.11, 0.68),
         legend.background = element_blank(),
         legend.title = element_blank()) +
-  labs(subtitle = "Suicides by age (total from 1921 - 2020)",
+  labs(subtitle = "By age group",
        y = NULL,
-       x = NULL)
+       x = NULL) -> s_plot_2
+
+# Combine and annotate
+plot_s_1 <- (s_plot_1 / s_plot_2) +
+  plot_annotation(title = "Suicides (1921-2020)",
+                  caption = "source: Tilastokeskus 11by -- Suicides by age and gender, 1921-2020")
+
+# Save image
+ggsave("images//4_plot_s_1.png", plot_s_1, device = "png", dpi = 96,
+       width = 9, height = 8, units = c("in"))
   
+# 12ef -- Accidental and violent deaths by underlying cause of death, 1998-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_12ef.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_12ef.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("ksyylkm3"), "Vuosi"=c("*"),
+             "Ikä" = c("SSS"), "Tapaturmat ja väkivalta (ulkoisten syiden luokitus)" =
+               c("073", "074", "075", "076", "077", "078", "079", "080", "081",
+                 "082", "083", "084", "085", "086", "087", "088", "089", "090",
+                 "091", "092", "093", "094", "095", "096", "097"))
+px_12ef <- pxweb_get(url = url, query = query)
+df_12ef <- as_tibble(as.data.frame(px_12ef, column.name.type = "text", variable.value.type = "text"))
+
+# Combine years and shorten the names of causes
+df_12ef |>
+  rename(Cause = "Accidents and violence (short list of external causes)",
+         Deaths = "Total accidental and violent deaths",
+         Sex = "Gender") |>
+  group_by(Cause, Sex) |>
+  summarise(Deaths = sum(Deaths)) |>
+  mutate(Sex = as_factor(Sex),
+         Cause = str_remove(Cause, "[:digit:]{3}[:space:]Suicide "),
+         Cause = str_remove(Cause, "^by "),
+         Cause = str_to_sentence(Cause),
+         Cause = str_replace(Cause, "autonomic nervous system", "ANS")
+  ) -> df_12ef
+
+# Calculate factor levels for Cause (fewest total deaths to highest)
+df_12ef |>
+  group_by(Cause) |>
+  summarise(Deaths = sum(Deaths)) |>
+  filter(Deaths > 0) |>
+  arrange(Deaths) |>
+  pull(Cause) -> cause_levels
+
+# Set levels for Cause, create plot
+df_12ef |>
+  filter(Cause %in% cause_levels) |> # Filter out those causes with 0 deaths
+  mutate(Cause = factor(Cause, levels = cause_levels)) |>
+  ggplot(aes(Cause, Deaths, fill = Sex)) +
+  geom_col() +
+  scale_x_discrete(expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  coord_flip() +
+  labs(subtitle = "By method (1998 - 2020)",
+       caption = "source: Tilastokeskus 12ef -- Accidental and violent deaths by underlying cause of death, 1998-2020",
+       x = NULL, y = NULL) +
+  theme(legend.position = c(0.91, 0.2),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        axis.text.y = element_text(size = 10),
+        plot.title.position = "plot",
+        plot.subtitle = element_text(hjust = 0.06)) -> plot_s_2
+
+# Save picture
+ggsave("images//4_plot_s_2.png", plot_s_2, device = "png", dpi = 96,
+       width = 9, height = 7, units = c("in"))
+
 # 12z6 -- Deaths by month, underlying cause of death and gender, 1971M01-2020M12
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_12z6.px/
 url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_12z6.px"
@@ -724,7 +623,7 @@ query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Kuukausi"=c("*"),
 px_12z6_50 <- pxweb_get(url = url, query = query)
 df_12z6_50 <- as_tibble(as.data.frame(px_12z6_50, column.name.type = "text", variable.value.type = "text"))
 
-
+# Combine years, give months short names, calculate daily deaths 
 df_12z6_50 |>
   separate(Month, into = c("Year", "Month"), sep = "M") |>
   group_by(Month, Gender) |>
@@ -746,7 +645,7 @@ df_12z6_50 |>
          Days_in_month = rep(c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31), each = 2),
          Deaths_daily = round(Deaths / Days_in_month, 2)) -> df_12z6_50
 
-
+# Function for creating the monthly plots
 create_plot <- function(gender, panel_color) {
   df_12z6_50 |>
     filter(Gender == gender) |>
@@ -761,50 +660,21 @@ create_plot <- function(gender, panel_color) {
     theme(panel.border = element_rect(colour = panel_color))
 }
 
-create_plot("Females", "#CC79A7") -> F_plot
-create_plot("Males", "#0072B2") -> M_plot
+# Create monthly plots
+create_plot("Females", "#FF0000FF") -> F_plot
+create_plot("Males", "#00FFFFFF") -> M_plot
 
+# Combine and annotate
 (F_plot / M_plot) +
 plot_annotation(title = "Daily suicides by month (Jan 1971 - Dec 2020)",
                 subtitle = "Warmer months have higher suicide rates",
-                caption = "source: Tilastokeskus 2z6 -- Deaths by month, underlying cause of death and gender")
+                caption = "source: Tilastokeskus 2z6 -- Deaths by month, underlying cause of death and gender"
+                ) -> plot_s_3
 
-# 12ef -- Accidental and violent deaths by underlying cause of death, 1998-2020
-# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_12ef.px/
-url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_12ef.px"
-query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("ksyylkm3"), "Vuosi"=c("*"),
-             "Ikä" = c("SSS"), "Tapaturmat ja väkivalta (ulkoisten syiden luokitus)" =
-               c("073", "074", "075", "076", "077", "078", "079", "080", "081",
-                 "082", "083", "084", "085", "086", "087", "088", "089", "090",
-                 "091", "092", "093", "094", "095", "096", "097"))
-px_12ef <- pxweb_get(url = url, query = query)
-df_12ef <- as_tibble(as.data.frame(px_12ef, column.name.type = "text", variable.value.type = "text"))
+# Save as picture
+ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
+       width = 9, height = 7, units = c("in"))
 
-df_12ef |>
-  rename(Cause = "Accidents and violence (short list of external causes)",
-         Deaths = "Total accidental and violent deaths",
-         Sex = "Gender") |>
-  group_by(Cause, Sex) |>
-  summarise(Deaths = sum(Deaths)) |>
-  mutate(Sex = as_factor(Sex)) -> df_12ef
-
-
-# Calculate levels for Cause
-df_12ef |>
-  group_by(Cause) |>
-  summarise(Deaths = sum(Deaths)) |>
-  filter(Deaths > 0) |>
-  arrange(Deaths) |>
-  pull(Cause) -> cause_levels
-
-df_12ef |>
-  filter(Cause %in% cause_levels) |> # Filter out those causes with 0 deaths
-  mutate(Cause = factor(Cause, levels = cause_levels)) |>
-  ggplot(aes(Cause, Deaths, fill = Sex)) +
-  geom_col() +
-  coord_flip()
-
-  
 # Gender and cause differences -----------------------------------------
 
 # 11bv -- Deaths by underlying cause of death (ICD-10, 3-character level), age and gender, 1998-2020
