@@ -676,7 +676,7 @@ deaths_cause |>
 
 
 
-# Suicides ----------------------------------------------------------------
+# Suicide  ----------------------------------------------------------------
 
 # 11by -- Suicides by age and gender, 1921-2020
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11by.px/
@@ -744,10 +744,10 @@ df_12z6_50 |>
                            Month == "12" ~ "Dec"),
          Month = as_factor(Month),
          Days_in_month = rep(c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31), each = 2),
-         Deaths_daily = round(Deaths / avg_days_per_month, 2)) -> df_12z6_50
+         Deaths_daily = round(Deaths / Days_in_month, 2)) -> df_12z6_50
 
 
-create_plot <- function(gender) {
+create_plot <- function(gender, panel_color) {
   df_12z6_50 |>
     filter(Gender == gender) |>
     ggplot(aes(Month, Deaths_daily)) +
@@ -757,31 +757,52 @@ create_plot <- function(gender) {
     theme_bw() +
     labs(subtitle = gender,
          y = NULL,
-         x = NULL) 
+         x = NULL) +
+    theme(panel.border = element_rect(colour = panel_color))
 }
 
-create_plot("Females") -> F_plot
-create_plot("Males") -> M_plot
+create_plot("Females", "#CC79A7") -> F_plot
+create_plot("Males", "#0072B2") -> M_plot
 
 (F_plot / M_plot) +
-plot_annotation(title = "Daily suicides per month (Jan 1971 - Dec 2020)",
+plot_annotation(title = "Daily suicides by month (Jan 1971 - Dec 2020)",
+                subtitle = "Warmer months have higher suicide rates",
                 caption = "source: Tilastokeskus 2z6 -- Deaths by month, underlying cause of death and gender")
 
+# 12ef -- Accidental and violent deaths by underlying cause of death, 1998-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_12ef.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_12ef.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("ksyylkm3"), "Vuosi"=c("*"),
+             "Ikä" = c("SSS"), "Tapaturmat ja väkivalta (ulkoisten syiden luokitus)" =
+               c("073", "074", "075", "076", "077", "078", "079", "080", "081",
+                 "082", "083", "084", "085", "086", "087", "088", "089", "090",
+                 "091", "092", "093", "094", "095", "096", "097"))
+px_12ef <- pxweb_get(url = url, query = query)
+df_12ef <- as_tibble(as.data.frame(px_12ef, column.name.type = "text", variable.value.type = "text"))
+
+df_12ef |>
+  rename(Cause = "Accidents and violence (short list of external causes)",
+         Deaths = "Total accidental and violent deaths",
+         Sex = "Gender") |>
+  group_by(Cause, Sex) |>
+  summarise(Deaths = sum(Deaths)) |>
+  mutate(Sex = as_factor(Sex)) -> df_12ef
 
 
-url = "https://statfin.stat.fi:443/PxWeb/api/v1/fi/StatFin/ksyyt/statfin_ksyyt_pxt_12z6.px"
-query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Kuukausi"=c("*"),
-             "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*"))
-px_data <- pxweb_get(url = url, query = query)
-deaths_cause <- as_tibble(as.data.frame(px_data, column.name.type = "text", variable.value.type = "text"))
+# Calculate levels for Cause
+df_12ef |>
+  group_by(Cause) |>
+  summarise(Deaths = sum(Deaths)) |>
+  filter(Deaths > 0) |>
+  arrange(Deaths) |>
+  pull(Cause) -> cause_levels
 
-deaths_cause <- deaths_cause |>
-  rename(month = Kuukausi,
-         cause = "Tilaston peruskuolemansyy (aikasarjaluokitus)",
-         sex = Sukupuoli,
-         deaths = Kuolleet) |>
-  mutate(sex = if_else(sex == "Miehet", "males", "females")) |>
-  mutate(sex = as_factor(sex))
+df_12ef |>
+  filter(Cause %in% cause_levels) |> # Filter out those causes with 0 deaths
+  mutate(Cause = factor(Cause, levels = cause_levels)) |>
+  ggplot(aes(Cause, Deaths, fill = Sex)) +
+  geom_col() +
+  coord_flip()
 
   
 # Gender and cause differences -----------------------------------------
