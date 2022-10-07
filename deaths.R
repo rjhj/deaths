@@ -83,7 +83,7 @@ ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
 
 
-# Causes of death per region ----------------------------------------------
+# Causes by region --------------------------------------------------
 
 # Get the correspondence table between municipalities and regions in 2020
 # https://www.stat.fi/en/luokitukset/corrmaps/kunta_1_20200101%23maakunta_1_20200101/
@@ -303,7 +303,7 @@ for (i in seq(from = 1, to = length(causes))) {
          width = 7.3, height = 6, units = c("in"))
 }
 
-# Which months have the most deaths? -------------------------------------
+# Months -----------------------------------------------
 
 # 12ah -- Deaths by month, 1945-2021
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ah.px/
@@ -368,7 +368,7 @@ plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot +
 ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
 
-# Life expectancy at birth---------------- -----------------------------------
+# Longetivity ---------------------------------------------------
 
 # Notice: To create the second plots (region) in this section we are
 # reusing df_region_map (created in the section Region and cause (2016 - 2020))
@@ -525,7 +525,7 @@ df_11by |>
   ggplot(aes(Year, Suicides, color = Sex)) +
   geom_line(size = 1.1) +
   scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.07, 0.9),
+  theme(legend.position = c(0.08, 0.9),
         legend.background = element_blank(),
         legend.title = element_blank()) +
   labs(subtitle = "By year",
@@ -541,9 +541,10 @@ df_11by |>
          Sex = as_factor(Gender)) |>
   ggplot(aes(Sex, Suicides, fill = Age)) +
   geom_col(position = "dodge") +
+  scale_y_continuous(expand = expansion(mult = c(0))) +
   paletteer::scale_fill_paletteer_d("ggthemes::manyeys") +
   guides(fill = guide_legend(ncol = 2, byrow = F)) +
-  theme(legend.position = c(0.11, 0.68),
+  theme(legend.position = c(0.12, 0.68),
         legend.background = element_blank(),
         legend.title = element_blank()) +
   labs(subtitle = "By age group",

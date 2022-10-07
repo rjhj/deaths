@@ -18,21 +18,22 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 ```
 
-```{r message=FALSE}
+## Libraries
+```{r Libraries, message=FALSE}
 library(tidyverse)
 library(patchwork)
 library(pxweb) # for pxweb_get()
 library(geofi) # for get_municipalities()
 library(scales) # for label_comma()
-library(lubridate) # for ym()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
+library(paletteer) # for scale_fill_paletteer_d()
 ```
 
 ## History
-
-```{r}
+```{r History}
 # 12at -- Vital statistics and population, 1749-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12at.px/
 px_12at <- pxweb_get(url = 
 "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12at.px",
 query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
@@ -40,10 +41,11 @@ query = list("Tiedot"=c("vm01", "vm11", "vaesto"), "Vuosi"=c("*")))
 df_12at <- as_tibble(as.data.frame(px_12at, column.name.type = "text", variable.value.type = "text"))
 
 # Calculate death rate
-df_12at <- df_12at |>
+df_12at |>
   rename(Live_births = "Live births") |>
   mutate(Year = as.integer(Year),
-         Death_rate = Deaths / Population * 100000)
+         Death_rate = Deaths / Population * 100000
+         ) -> df_12at 
 
 # Source: http://www.saunalahti.fi/arnoldus/kuolovuo.html
 labels = tribble(
@@ -56,7 +58,7 @@ labels = tribble(
   2008,  48659,  "In 2021 there were\n57,659 deaths in\nFinland, highest\nsince 1940s"
 )
 
-# Plot deaths 1749-2021
+# Plot deaths of 1749 - 2021
 ggplot(df_12at, aes(Year, Deaths)) +
   geom_line(size = 1.1, color = "#505085") +
   scale_x_continuous(breaks = seq(1750, 2020, 25)) +
@@ -69,7 +71,7 @@ ggplot(df_12at, aes(Year, Deaths)) +
 
 # Function to create the three smaller plots
 create_graph <- function(df, y_stat, subtitle) {
-  ggplot(df, aes(Year, {{y_stat}})) + # curly-curly, because column name passed as variable
+  ggplot(df, aes(Year, {{y_stat}})) +
     geom_line(color = "#505085") +
     scale_x_continuous(breaks = seq(1750, 2020, 50)) +
     scale_y_continuous(labels = scales::label_comma()) +
@@ -85,14 +87,14 @@ create_graph(df_12at, Population, "Population") -> yearly_population_plot
 create_graph(df_12at, Live_births, "Live births") -> yearly_births_plot
 create_graph(df_12at, Death_rate, "Deaths / 100,000 people") -> yearly_death_rate_plot
 
-# Set layout for plots
+# Set the layout for plots
 layout <- "
 AAA
 AAA
 BCD
 "
 
-# Combine and annotate plots
+# Combine and annotate the plots
 (yearly_deaths_plot + yearly_population_plot +
                   yearly_births_plot + yearly_death_rate_plot +
                   plot_layout(design = layout)) +
@@ -100,7 +102,7 @@ plot_annotation(title = "Yearly deaths, population and births in Finland, 1749 -
 caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021"
 ) -> plot_yearly
 
-# Save picture
+# Save as picture
 ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
 ```
@@ -108,8 +110,7 @@ ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
 ![](images/1_plot_yearly.png)
 
 ## Region and cause (2016 - 2020)
-
-```{r}
+```{r Region_and_cause}
 # Get the correspondence table between municipalities and regions in 2020
 # https://www.stat.fi/en/luokitukset/corrmaps/kunta_1_20200101%23maakunta_1_20200101/
 region_keys_2020 <- data.table::fread("kunta_1_20200101%23maakunta_1_20200101.csv", encoding = "Latin-1",
@@ -266,14 +267,14 @@ df_11rf |>
 df_region_map <- geofi::get_municipalities(year = 2020, scale = 4500)
 
 # Grouping by regions, because we don't need individual municipalities or most other columns
-df_region_map <- df_region_map |>
+df_region_map |>
   group_by(maakunta_name_en) |>
   summarise() |>
-  rename(Region = maakunta_name_en)
+  rename(Region = maakunta_name_en) -> df_region_map
 
 # Add main df to the map df
-df_cause_region <- df_region_map |>
-  left_join(df_11rf, by = "Region")
+df_region_map |>
+  left_join(df_11rf, by = "Region") -> df_cause_region
 
 # Function: Creates a plot and a table for the given cause of death
 create_plot <- function(cause_en){
@@ -442,9 +443,8 @@ Sources:
 ![](images/region/65.png)
 </div>
 
-## Deadliest months
-
-```{r}
+## By month
+```{r Months}
 # 12ah -- Deaths by month, 1945-2021
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ah.px/
 px_12ah <- pxweb_get(url = 
@@ -474,7 +474,7 @@ df_12ah |>
   group_by(Month) |>
   summarise(Deaths_daily = round(mean(Deaths_daily))) |>
   ggplot(aes(Month, Deaths_daily)) +
-  geom_col() +
+  geom_col(fill = "#393b15") +
   geom_text(aes(label = Deaths_daily), vjust = 1.5,
             color = "white", size = 4) +
   theme_bw() +
@@ -487,7 +487,7 @@ df_12ah |>
   group_by(Decade, Month_short) |>
   summarise(Deaths_daily = round(mean(Deaths_daily))) |>
   ggplot(aes(Month_short, Deaths_daily)) +
-  geom_col() +
+  geom_col(fill = "#393b15") +
   theme_bw() +
   facet_wrap(vars(Decade), nrow = 2) +
   geom_text(aes(label = Deaths_daily),
@@ -513,8 +513,7 @@ ggsave("images//2_plot_months.png", plot_months, device = "png", dpi = 96,
 
 
 ## Life expectancy by sex
-
-```{r}
+```{r Longetivity}
 # Notice: To create the second plots (region) in this section we are
 # reusing df_region_map (created in the section Region and cause (2016 - 2020))
 
@@ -526,12 +525,12 @@ query = list( "Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*")))
 
 df_12am <- as_tibble(as.data.frame(px_12am, column.name.type = "text", variable.value.type = "text"))
 
-# Some years are in the form of "1751-1760", so we edit those to integers
-df_12am <- df_12am |>
+# Some years are in the form of "1751-1760", so mutate them to integers
+df_12am |>
   rename(Life_exp = "Life expectancy at birth, years") |>
   mutate(Year = str_sub(Year, 1, 4)) |>
   mutate(Year = as.integer(Year),
-         Sex = as_factor(Sex))
+         Sex = as_factor(Sex)) -> df_12am
 
 # Create the first of four plots
 ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
@@ -555,7 +554,7 @@ query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*"),
 df_12ap <- as_tibble(as.data.frame(px_12ap, column.name.type = "text", variable.value.type = "text"))
 
 # Calculate yearly means from 1986-2020 data   
-df_12ap <- df_12ap |>
+df_12ap |>
   mutate(Age = as.integer(Age),
          Year = as.integer(Year),
          Sex = as_factor(Sex)) |>
@@ -566,17 +565,17 @@ df_12ap <- df_12ap |>
   summarise(Life_exp = mean(Life_exp),
             Survivors = mean(Survivors),
             Death_prob = mean(Death_prob)) |>
-  mutate(Death_prob = Death_prob / 10) # Changing to percent 
+  mutate(Death_prob = Death_prob / 10 # Changing to percent 
+         ) -> df_12ap
 
 # Function used to create the remaining three plots
 create_plot <- function(ycol, ylab, subtitle_1) {
-  ggplot(df_12ap, aes(Age, !!sym(ycol), color = Sex)) +
+  ggplot(df_12ap, aes(Age, .data[[ycol]], color = Sex)) +
     geom_line(size = 1.1, na.rm = T) +
     scale_colour_hue(direction = -1) +
     scale_y_continuous(labels = scales::label_comma()) +
     theme(legend.position = "none") +
-    labs(subtitle = subtitle_1, y = ylab, x = "age"
-    )
+    labs(subtitle = subtitle_1, y = ylab, x = "age")
 }
 
 # Create the plots 2-4
@@ -603,13 +602,13 @@ px_12an <- pxweb_get(url =
 df_12an <- as_tibble(as.data.frame(px_12an, column.name.type = "text", variable.value.type = "text"))
 
 # Remove ID from region name
-df_12an <- df_12an |> 
+df_12an |> 
   rename(Life_exp = "Life expectancy at birth, years") |>
-  mutate(Region = str_remove_all(Region, "MK.. "))
+  mutate(Region = str_remove_all(Region, "MK.. ")) -> df_12an
 
 # Add map. Notice: df_region_map was created in the section Region and cause (2016 - 2020)
-df_life_region <- df_region_map |>
-  left_join(df_12an, by = c("Region"))
+df_region_map |>
+  left_join(df_12an, by = c("Region")) -> df_life_region
 
 # Create Females plot
 df_life_region |>
@@ -622,7 +621,7 @@ df_life_region |>
         legend.background = element_blank(),
         legend.key.size = unit(0.4, "in"),
         legend.text = element_text(size = 9),
-        panel.background = element_rect(colour = "#CC79A7"),
+        panel.background = element_rect(colour = "#FF0000FF"),
         plot.margin = margin(r = 1, unit = "cm"),
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_f_plot
@@ -638,7 +637,7 @@ df_life_region |>
         legend.background = element_blank(),
         legend.key.size = unit(0.4, "in"),
         legend.text = element_text(size = 9),
-        panel.background = element_rect(colour = "#0072B2"),
+        panel.background = element_rect(colour = "#00FFFFFF"),
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_m_plot
 
@@ -656,3 +655,176 @@ ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 9
 
 ![](images/3_plot_life_exp_1.png)
 ![](images/3_plot_life_exp_2.png)
+
+## Suicides
+```{r Suicides}
+# 11by -- Suicides by age and gender, 1921-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11by.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11by.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"), "Ikä" = c("*"))
+px_11by <- pxweb_get(url = url, query = query)
+df_11by <- as_tibble(as.data.frame(px_11by, column.name.type = "text", variable.value.type = "text"))
+
+# Create the yearly plot
+df_11by |>
+  filter(Age == "Total") |>
+  mutate(Year = as.integer(Year),
+         Sex = as_factor(Gender)) |>
+  ggplot(aes(Year, Suicides, color = Sex)) +
+  geom_line(size = 1.1) +
+  scale_colour_hue(direction = -1) +
+  theme(legend.position = c(0.08, 0.9),
+        legend.background = element_blank(),
+        legend.title = element_blank()) +
+  labs(subtitle = "By year",
+       y = NULL,
+       x = NULL) -> s_plot_1
+
+# Create the age group plot
+df_11by |>
+  filter(Age != "Total") |>
+  group_by(Age, Gender) |>
+  summarise(Suicides = sum(Suicides)) |>
+  mutate(Age = as_factor(Age),
+         Sex = as_factor(Gender)) |>
+  ggplot(aes(Sex, Suicides, fill = Age)) +
+  geom_col(position = "dodge") +
+  scale_y_continuous(expand = expansion(mult = c(0))) +
+  paletteer::scale_fill_paletteer_d("ggthemes::manyeys") +
+  guides(fill = guide_legend(ncol = 2, byrow = F)) +
+  theme(legend.position = c(0.12, 0.68),
+        legend.background = element_blank(),
+        legend.title = element_blank()) +
+  labs(subtitle = "By age group",
+       y = NULL,
+       x = NULL) -> s_plot_2
+
+# Combine and annotate
+plot_s_1 <- (s_plot_1 / s_plot_2) +
+  plot_annotation(title = "Suicides (1921-2020)",
+                  caption = "source: Tilastokeskus 11by -- Suicides by age and gender, 1921-2020")
+
+# Save image
+ggsave("images//4_plot_s_1.png", plot_s_1, device = "png", dpi = 96,
+       width = 9, height = 8, units = c("in"))
+  
+# 12ef -- Accidental and violent deaths by underlying cause of death, 1998-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_12ef.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_12ef.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("ksyylkm3"), "Vuosi"=c("*"),
+             "Ikä" = c("SSS"), "Tapaturmat ja väkivalta (ulkoisten syiden luokitus)" =
+               c("073", "074", "075", "076", "077", "078", "079", "080", "081",
+                 "082", "083", "084", "085", "086", "087", "088", "089", "090",
+                 "091", "092", "093", "094", "095", "096", "097"))
+px_12ef <- pxweb_get(url = url, query = query)
+df_12ef <- as_tibble(as.data.frame(px_12ef, column.name.type = "text", variable.value.type = "text"))
+
+# Combine years and shorten the names of causes
+df_12ef |>
+  rename(Cause = "Accidents and violence (short list of external causes)",
+         Deaths = "Total accidental and violent deaths",
+         Sex = "Gender") |>
+  group_by(Cause, Sex) |>
+  summarise(Deaths = sum(Deaths)) |>
+  mutate(Sex = as_factor(Sex),
+         Cause = str_remove(Cause, "[:digit:]{3}[:space:]Suicide "),
+         Cause = str_remove(Cause, "^by "),
+         Cause = str_to_sentence(Cause),
+         Cause = str_replace(Cause, "autonomic nervous system", "ANS")
+  ) -> df_12ef
+
+# Calculate factor levels for Cause (fewest total deaths to highest)
+df_12ef |>
+  group_by(Cause) |>
+  summarise(Deaths = sum(Deaths)) |>
+  filter(Deaths > 0) |>
+  arrange(Deaths) |>
+  pull(Cause) -> cause_levels
+
+# Set levels for Cause, create plot
+df_12ef |>
+  filter(Cause %in% cause_levels) |> # Filter out those causes with 0 deaths
+  mutate(Cause = factor(Cause, levels = cause_levels)) |>
+  ggplot(aes(Cause, Deaths, fill = Sex)) +
+  geom_col() +
+  scale_x_discrete(expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  coord_flip() +
+  labs(subtitle = "By method (1998 - 2020)",
+       caption = "source: Tilastokeskus 12ef -- Accidental and violent deaths by underlying cause of death, 1998-2020",
+       x = NULL, y = NULL) +
+  theme(legend.position = c(0.91, 0.2),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        axis.text.y = element_text(size = 10),
+        plot.title.position = "plot",
+        plot.subtitle = element_text(hjust = 0.06)) -> plot_s_2
+
+# Save picture
+ggsave("images//4_plot_s_2.png", plot_s_2, device = "png", dpi = 96,
+       width = 9, height = 7, units = c("in"))
+
+# 12z6 -- Deaths by month, underlying cause of death and gender, 1971M01-2020M12
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_12z6.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_12z6.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Kuukausi"=c("*"),
+             "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("50"))
+px_12z6_50 <- pxweb_get(url = url, query = query)
+df_12z6_50 <- as_tibble(as.data.frame(px_12z6_50, column.name.type = "text", variable.value.type = "text"))
+
+# Combine years, give months short names, calculate daily deaths 
+df_12z6_50 |>
+  separate(Month, into = c("Year", "Month"), sep = "M") |>
+  group_by(Month, Gender) |>
+  summarise(Deaths = mean(Deaths)) |>
+  ungroup() |>
+  mutate(Month = case_when(Month == "01" ~ "Jan",
+                           Month == "02" ~ "Feb",
+                           Month == "03" ~ "Mar",
+                           Month == "04" ~ "Apr",
+                           Month == "05" ~ "May",
+                           Month == "06" ~ "Jun",
+                           Month == "07" ~ "Jul",
+                           Month == "08" ~ "Aug",
+                           Month == "09" ~ "Sep",
+                           Month == "10" ~ "Oct",
+                           Month == "11" ~ "Nov",
+                           Month == "12" ~ "Dec"),
+         Month = as_factor(Month),
+         Days_in_month = rep(c(31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31), each = 2),
+         Deaths_daily = round(Deaths / Days_in_month, 2)) -> df_12z6_50
+
+# Function for creating the monthly plots
+create_plot <- function(gender, panel_color) {
+  df_12z6_50 |>
+    filter(Gender == gender) |>
+    ggplot(aes(Month, Deaths_daily)) +
+    geom_col(fill = "#393b15") +
+    geom_text(aes(label = Deaths_daily), vjust = 1.5,
+              color = "white", size = 4) +
+    theme_bw() +
+    labs(subtitle = gender,
+         y = NULL,
+         x = NULL) +
+    theme(panel.border = element_rect(colour = panel_color))
+}
+
+# Create monthly plots
+create_plot("Females", "#FF0000FF") -> F_plot
+create_plot("Males", "#00FFFFFF") -> M_plot
+
+# Combine and annotate
+(F_plot / M_plot) +
+plot_annotation(title = "Daily suicides by month (Jan 1971 - Dec 2020)",
+                subtitle = "Warmer months have higher suicide rates",
+                caption = "source: Tilastokeskus 2z6 -- Deaths by month, underlying cause of death and gender"
+                ) -> plot_s_3
+
+# Save as picture
+ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
+       width = 9, height = 7, units = c("in"))
+```
+
+![](images/4_plot_s_1.png)
+![](images/4_plot_s_2.png)
+![](images/4_plot_s_3.png)
