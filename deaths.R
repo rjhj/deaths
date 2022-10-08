@@ -683,6 +683,77 @@ plot_annotation(title = "Daily suicides by month (Jan 1971 - Dec 2020)",
 ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
 
+
+# Trends for causes -----------------------------
+
+# 11bv -- Deaths by underlying cause of death (ICD-10, 3-character level), age and gender, 1998-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bv.px/
+px_11bv <- pxweb_get(url = 
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bv.px",
+                     query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("*"),
+                                  "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (ICD-10, 3-merkkitaso)" = c("*")))
+df_11bv <- as_tibble(as.data.frame(px_11bv, column.name.type = "text", variable.value.type = "text"))
+
+df_11bv |>
+  rename(Cause = "Underlying cause of death (ICD-10, 3-character level)") |>
+  select(Cause, Year, Deaths) |>
+  replace_na(list(Deaths = 0)) -> df_11bv
+
+# Create filter with only single cases with more than 100 deaths
+df_11bv |>  
+  group_by(Cause) |>
+  summarise(Deaths = sum(Deaths)) |>
+  filter(Deaths > 10) |>
+  filter(str_detect(Cause, "^[:alpha:][:digit:][:digit:][:space:]")) |>
+  select(Cause) -> causes_to_examine
+
+# Filtering join with original data
+df_11bv |>
+  semi_join(causes_to_examine, by = c("Cause")) |>
+  mutate(Year = as.integer(Year)) -> df_11bv
+
+df_11bv |>
+  group_by(Cause) |>
+  mutate(Percentage = Deaths/sum(Deaths),
+         Distance_to_zero = abs(Percentage - 1/23),
+         Weight = Year-2009,
+         Weighted_distance = Distance_to_zero * Weight,
+         Sum_weighted_distance = sum(Weighted_distance)) |>
+  ungroup() -> df_11bv
+
+df_11bv |>
+  slice_min(order_by = Sum_weighted_distance, n = 23*20) |>
+  ggplot(aes(Year, Percentage, color = Cause)) +
+  geom_line()
+
+#----------------
+
+# 11bs -- Deaths by underlying cause of death (time series classification), age and gender, 1969-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bs.px/
+px_11bs <- pxweb_get(url = 
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bs.px",
+query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("*"),
+  "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*")))
+df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
+
+names(df_11bs)
+
+df_11bs |>
+  rename(Cause = "Underlying cause of death (time series classification)") |>
+  mutate(Year = as.integer(Year)) |>
+  filter(str_detect(Cause, "^[:digit:][:digit:][:space:]"),
+         Cause != "00 COVID-19 virus infection (U071, U072)",
+         Cause != "54 No death certificate") |>
+  select(Cause, Year, Deaths) |>
+  mutate(Cause = str_remove_all(Cause, " \\(.+\\)")) |>
+  group_by(Cause) |>
+  mutate(Percentage = Deaths/sum(Deaths),
+         Weight = Year-1994.5,
+         Weighted_distance = Percentage * Weight,
+         Sum_weighted_distance = sum(Weighted_distance)) |>
+  ungroup() |> View()
+
+tääl
 # Gender and cause differences -----------------------------------------
 
 # 11bv -- Deaths by underlying cause of death (ICD-10, 3-character level), age and gender, 1998-2020
@@ -733,3 +804,8 @@ df_11bv |>
   arrange(desc(M_to_F_ratio)) |> View()
 
 # Jos sittenkin latailis ikäjakautuman mukaan, esim. neljä eri ryhmää.
+
+# Laittais onnettomuudet sen mukaan ovatko tulleet yleisemmäksi vai harvinaisemmaksi
+# Tai sittenkin kaikista.
+
+
