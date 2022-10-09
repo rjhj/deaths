@@ -11,6 +11,7 @@ library(scales) # for label_comma()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
 library(paletteer) # for scale_fill_paletteer_d()
+library(ggshadow) # for geom_shadowline()
 library(rmdformats)
 
 # History ------------------------------------------------------------------- 
@@ -42,26 +43,28 @@ labels = tribble(
 
 # Plot deaths of 1749 - 2021
 ggplot(df_12at, aes(Year, Deaths)) +
-  geom_line(size = 1.1, color = "#505085") +
+  geom_line(size = 1.1, color = "#593112") +
   scale_x_continuous(breaks = seq(1750, 2020, 25)) +
   scale_y_continuous(labels = scales::label_comma(), breaks = seq(0, 150000, 10000)) +
   geom_text(aes(label=Label), size = 4.5, vjust = -0.5, data=labels) +
   labs(subtitle = "Deaths",
        y = NULL,
        x = NULL) +
-  theme_minimal() -> yearly_deaths_plot
+  theme_minimal() +
+  theme(plot.background = element_rect(fill = "#FCFCFC", color = "#FCFCFC")) -> yearly_deaths_plot
 
 # Function to create the three smaller plots
 create_graph <- function(df, y_stat, subtitle) {
   ggplot(df, aes(Year, {{y_stat}})) +
-    geom_line(color = "#505085") +
+    geom_line(color = "#593112") +
     scale_x_continuous(breaks = seq(1750, 2020, 50)) +
     scale_y_continuous(labels = scales::label_comma()) +
     labs(subtitle = subtitle,
          y = NULL,
          x = NULL) +
     theme_minimal() +
-    theme(text = element_text(size = 11))
+    theme(text = element_text(size = 11),
+          plot.background = element_rect(fill = "#FCFCFC", color = "#FCFCFC"))
 }
 
 # Create the smaller plots
@@ -80,14 +83,16 @@ BCD
 (yearly_deaths_plot + yearly_population_plot +
                   yearly_births_plot + yearly_death_rate_plot +
                   plot_layout(design = layout)) +
-plot_annotation(title = "Yearly deaths, population and births in Finland, 1749 - 2021",
+plot_annotation(
+theme = theme(plot.background = element_rect(fill = "#FCFCFC", 
+                                             colour = "#FCFCFC")),
+title = "Yearly deaths, population and births in Finland, 1749 - 2021",
 caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021"
 ) -> plot_yearly
 
 # Save as picture
 ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
-
 
 # Causes by region --------------------------------------------------
 
@@ -280,7 +285,8 @@ create_plot <- function(cause_en){
                          midpoint = 1,
                          space="Lab") + 
     labs(fill = NULL) +
-    theme(legend.position = c(0.2, 0.65),
+    theme(plot.background = element_rect(fill = "#FCFCFC", color = "#FCFCFC"),
+          legend.position = c(0.2, 0.65),
           legend.background = element_blank(),
           legend.key.size = unit(0.2, "in"),
           legend.text = element_text(size = 9),
@@ -297,9 +303,12 @@ create_plot <- function(cause_en){
     select(Deaths, Expected, SMR) -> df  
   
   # Create the table and combine it with the plot
+  #p <- p + gridExtra::tableGrob(df, theme = ttheme_default(base_size = 9)) +
   p <- p + gridExtra::tableGrob(df, theme = ttheme_default(base_size = 9)) +
     plot_annotation(title = title_1,
-                    theme = theme(plot.title = element_text(size = 14)))
+                    theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                                 colour = "#FCFCFC"),
+                                  plot.title = element_text(size = 14)))
 }
 
 # Save plots for all causes as pictures. Warning: creates 65 pictures!
@@ -345,6 +354,8 @@ df_12ah |>
   geom_text(aes(label = Deaths_daily), vjust = 1.5,
             color = "white", size = 4) +
   theme_bw() +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"))+
   labs(y = NULL,
        x = NULL) -> daily_deaths_month_plot
 
@@ -359,7 +370,9 @@ df_12ah |>
   facet_wrap(vars(Decade), nrow = 2) +
   geom_text(aes(label = Deaths_daily),
             color = "white", size = 3.2, angle = 270, hjust = -0.1) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.15)) +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        axis.text.x = element_text(angle = 90, vjust = 0.15)) +
   labs(subtitle = "By decade",
        y = NULL,
        x = NULL,
@@ -368,7 +381,9 @@ df_12ah |>
 
 # Combine the created plots and add annotations
 plot_months <- daily_deaths_month_plot / daily_deaths_decade_plot +
-  plot_annotation(title = "Daily deaths in Finland by month (1945-2021)",
+  plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                 colour = "#FCFCFC")),
+                  title = "Daily deaths in Finland by month (1945-2021)",
                   subtitle = "Death rates are higher in winter months")
 
 # Save as a picture
@@ -398,8 +413,10 @@ df_12am |>
 # Create the first of four plots
 ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
   geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.25, 0.75),
+  scale_color_manual(values = c("#6BA3D6", "#EA6B73")) +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.25, 0.75),
         legend.background = element_blank(),
         plot.title = element_text(hjust = 0.06),
         plot.tag.position = c(0.2, 1)) +
@@ -435,9 +452,11 @@ df_12ap |>
 create_plot <- function(ycol, ylab, subtitle_1) {
   ggplot(df_12ap, aes(Age, .data[[ycol]], color = Sex)) +
     geom_line(size = 1.1, na.rm = T) +
-    scale_colour_hue(direction = -1) +
+    scale_color_manual(values = c("#6BA3D6", "#EA6B73")) +
     scale_y_continuous(labels = scales::label_comma()) +
-    theme(legend.position = "none") +
+    theme(plot.background = element_rect(fill = "#FCFCFC",
+                                         colour = "#FCFCFC"),
+          legend.position = "none") +
     labs(subtitle = subtitle_1, y = ylab, x = "age")
 }
 
@@ -448,7 +467,9 @@ create_plot("Death_prob", "percent", "Yearly probability of death (1986-2020)") 
 
 # Combine and annotate plots 1-4
 plot_life_exp_1 <- (life_plot_1 / life_plot_2 | life_plot_3 / life_plot_4) +
-  plot_annotation(title = "Longetivity by sex",
+  plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                               colour = "#FCFCFC")),
+                  title = "Longetivity by sex",
                   caption = "sources: Tilastokeskus 12am (1751-2021) & 12ap (1986-2020)")
 
 # 12an -- Life expectancy at birth by sex and region
@@ -480,11 +501,13 @@ df_life_region |>
   geom_sf(aes(geometry = geom, fill = Life_exp)) +
   scale_fill_distiller(palette = "Spectral", direction = 1, n.breaks = 9) +
   labs(subtitle = "Females", fill = NULL) +
-  theme(legend.position = c(0.15, 0.63),
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.15, 0.63),
         legend.background = element_blank(),
         legend.key.size = unit(0.4, "in"),
         legend.text = element_text(size = 9),
-        panel.background = element_rect(colour = "#FF0000FF"),
+        panel.background = element_rect(colour = "#EA6B73"),
         plot.margin = margin(r = 1, unit = "cm"),
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_f_plot
@@ -496,17 +519,21 @@ df_life_region |>
   geom_sf(aes(geometry = geom, fill = Life_exp)) +
   scale_fill_distiller(palette = "Spectral", direction = 1, n.breaks = 9) +
   labs(subtitle = "Males", fill = NULL) +
-  theme(legend.position = c(0.15, 0.63),
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.15, 0.63),
         legend.background = element_blank(),
         legend.key.size = unit(0.4, "in"),
         legend.text = element_text(size = 9),
-        panel.background = element_rect(colour = "#00FFFFFF"),
+        panel.background = element_rect(colour = "#6BA3D6"),
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_m_plot
 
 # Combine and annotate region plots
 plot_life_exp_2 <- life_exp_region_f_plot + life_exp_region_m_plot +
-  plot_annotation(title = "Life expectancy by region (2018-2020)",
+  plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                                     colour = "#FCFCFC")),
+    title = "Life expectancy by region (2018-2020)",
     caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region")
 
 # Save images
@@ -531,8 +558,10 @@ df_11by |>
          Sex = as_factor(Gender)) |>
   ggplot(aes(Year, Suicides, color = Sex)) +
   geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.08, 0.9),
+  scale_color_manual(values = c('#6BA3D6', '#EA6B73')) +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.08, 0.9),
         legend.background = element_blank(),
         legend.title = element_blank()) +
   labs(subtitle = "By year",
@@ -551,7 +580,9 @@ df_11by |>
   scale_y_continuous(expand = expansion(mult = c(0))) +
   paletteer::scale_fill_paletteer_d("ggthemes::manyeys") +
   guides(fill = guide_legend(ncol = 2, byrow = F)) +
-  theme(legend.position = c(0.12, 0.68),
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.12, 0.68),
         legend.background = element_blank(),
         legend.title = element_blank()) +
   labs(subtitle = "By age group",
@@ -560,7 +591,9 @@ df_11by |>
 
 # Combine and annotate
 plot_s_1 <- (s_plot_1 / s_plot_2) +
-  plot_annotation(title = "Suicides (1921-2020)",
+  plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                               colour = "#FCFCFC")),
+                  title = "Suicides (1921-2020)",
                   caption = "source: Tilastokeskus 11by -- Suicides by age and gender, 1921-2020")
 
 # Save image
@@ -606,13 +639,16 @@ df_12ef |>
   mutate(Cause = factor(Cause, levels = cause_levels)) |>
   ggplot(aes(Cause, Deaths, fill = Sex)) +
   geom_col() +
+  scale_fill_manual(values = c("#EA6B73", "#6BA3D6")) +
   scale_x_discrete(expand = expansion(mult = c(0, 0))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0))) +
   coord_flip() +
   labs(subtitle = "By method (1998 - 2020)",
        caption = "source: Tilastokeskus 12ef -- Accidental and violent deaths by underlying cause of death, 1998-2020",
        x = NULL, y = NULL) +
-  theme(legend.position = c(0.91, 0.2),
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.91, 0.2),
         legend.background = element_blank(),
         legend.title = element_blank(),
         axis.text.y = element_text(size = 10),
@@ -665,16 +701,20 @@ create_plot <- function(gender, panel_color) {
     labs(subtitle = gender,
          y = NULL,
          x = NULL) +
-    theme(panel.border = element_rect(colour = panel_color))
+    theme(plot.background = element_rect(fill = "#FCFCFC",
+                                         colour = "#FCFCFC"),
+          panel.border = element_rect(colour = panel_color))
 }
 
 # Create monthly plots
-create_plot("Females", "#FF0000FF") -> F_plot
-create_plot("Males", "#00FFFFFF") -> M_plot
+create_plot("Females", "#EA6B73") -> F_plot
+create_plot("Males", "#6BA3D6") -> M_plot
 
 # Combine and annotate
 (F_plot / M_plot) +
-plot_annotation(title = "Daily suicides by month (Jan 1971 - Dec 2020)",
+plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                             colour = "#FCFCFC")),
+                title = "Daily suicides by month (Jan 1971 - Dec 2020)",
                 subtitle = "Warmer months have higher suicide rates",
                 caption = "source: Tilastokeskus 2z6 -- Deaths by month, underlying cause of death and gender"
                 ) -> plot_s_3
@@ -726,7 +766,7 @@ df_11bv |>
   ggplot(aes(Year, Percentage, color = Cause)) +
   geom_line()
 
-#----------------
+# Cause and year ----------------
 
 # 11bs -- Deaths by underlying cause of death (time series classification), age and gender, 1969-2020
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bs.px/
@@ -736,22 +776,31 @@ query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("*"),
   "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*")))
 df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
 
-names(df_11bs)
-
 df_11bs |>
   rename(Cause = "Underlying cause of death (time series classification)") |>
   mutate(Year = as.integer(Year)) |>
-  filter(str_detect(Cause, "^[:digit:][:digit:][:space:]"),
-         Cause != "00 COVID-19 virus infection (U071, U072)",
-         Cause != "54 No death certificate") |>
+  filter(str_detect(Cause, "^[:digit:][:digit:][:space:]"))|>
   select(Cause, Year, Deaths) |>
   mutate(Cause = str_remove_all(Cause, " \\(.+\\)")) |>
   group_by(Cause) |>
+  mutate(Sum_deaths = sum(Deaths)) |>
+  filter(Sum_deaths >= 1000,
+         Cause != "54 No death certificate") |>
   mutate(Percentage = Deaths/sum(Deaths),
          Weight = Year-1994.5,
          Weighted_distance = Percentage * Weight,
          Sum_weighted_distance = sum(Weighted_distance)) |>
-  ungroup() |> View()
+  ungroup() -> df_11bs
+
+df_11bs |>
+  slice_max(order_by = Sum_weighted_distance, n = 52*8) |>
+  mutate(Cause = as_factor(Cause)) |>
+  ggplot(aes(Year, Deaths, color = fct_reorder2(Cause, Year, Deaths))) +
+  geom_line(size = 1.5) +
+  #paletteer::scale_color_paletteer_d("ggthemes::Jewel_Bright") +
+  theme(legend.position = c(0.3, 0.7),
+        legend.background = element_blank(),
+        legend.title = element_blank())
 
 tääl
 # Gender and cause differences -----------------------------------------
