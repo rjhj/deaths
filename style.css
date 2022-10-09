@@ -11,3 +11,29 @@ div.col-md-12 .pull-right {
   float: left !important;
   margin-left: 20px;
 }
+
+h1,h2,h3,h4,h5,h6,legend{
+    font-family:"Roboto Slab","ff-tisa-web-pro","Georgia",Arial,sans-serif;
+    font-weight:700;
+    /*color: #404040;*/
+    color: #662700;
+}
+
+#sidebar {
+  background: #30190C;
+}
+
+#sidebar h2 {
+    background-color: #593112;
+}
+
+footer{
+    color:#FFF;
+}
+
+#postamble{
+  border-top: #3E210E;
+  background: #3E210E;
+}
+    
+    
