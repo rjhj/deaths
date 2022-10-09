@@ -11,7 +11,6 @@ library(scales) # for label_comma()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
 library(paletteer) # for scale_fill_paletteer_d()
-library(ggshadow) # for geom_shadowline()
 library(rmdformats)
 
 # History ------------------------------------------------------------------- 
@@ -318,6 +317,70 @@ for (i in seq(from = 1, to = length(causes))) {
   ggsave(filename = name, p, device = "png", dpi = 96,
          width = 7.3, height = 6, units = c("in"))
 }
+
+# Cause and year ----------------------------------------------
+
+# 11bs -- Deaths by underlying cause of death (time series classification), age and gender, 1969-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bs.px/
+px_11bs <- pxweb_get(url = 
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bs.px",
+                     query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("*"),
+                                  "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*")))
+df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
+
+df_11bs |>
+  rename(Cause = "Underlying cause of death (time series classification)") |>
+  mutate(Year = as.integer(Year)) |>
+  filter(str_detect(Cause, "^[:digit:][:digit:][:space:]"))|>
+  select(Cause, Year, Deaths) |>
+  mutate(Cause = str_remove_all(Cause, " \\(.+\\)")) |>
+  group_by(Cause) |>
+  mutate(Sum_deaths = sum(Deaths)) |>
+  filter(Sum_deaths >= 1000,
+         Cause != "54 No death certificate") |>
+  mutate(Percentage = Deaths/sum(Deaths),
+         Weight = Year-1994.5,
+         Weighted_distance = Percentage * Weight,
+         Sum_weighted_distance = sum(Weighted_distance)) |>
+  ungroup() -> df_11bs
+
+create_trend_graph <- function(dt, legend_position, subtitle_1){
+  ggplot(dt, aes(Year, Deaths, color = Cause)) +
+    geom_line(size = 1.5) +
+    theme_bw() +
+    labs(subtitle = subtitle_1,
+         x = NULL, y = NULL) +
+    theme(plot.background = element_rect(fill = "#FCFCFC",
+                                         colour = "#FCFCFC"),
+          legend.position = legend_position,
+          legend.background = element_blank(),
+          legend.title = element_blank())
+}
+
+df_11bs |>
+  slice_min(order_by = Sum_weighted_distance, n = 52*8) |>
+  mutate(Cause = as_factor(Cause),
+         Cause = fct_reorder2(Cause, desc(Year), Deaths)) |>
+  create_trend_graph(c(0.84, 0.73), "Causes getting less common") -> min_plot
+
+df_11bs |>
+  slice_max(order_by = Sum_weighted_distance, n = 52*8) |>
+  mutate(Cause = as_factor(Cause),
+         Cause = fct_reorder2(Cause, Year, Deaths)) |>
+  create_trend_graph(c(0.35, 0.69), "Causes getting more common") -> max_plot
+
+(min_plot / max_plot) +
+  plot_annotation(
+    theme = theme(plot.background = element_rect(fill = "#FCFCFC", 
+                                                 colour = "#FCFCFC")),
+    title = "Trends (deaths by year, 1969 - 2020)",
+    caption = "source: Tilastokeskus 11bs -- Deaths by underlying cause of death, 1969-2020"
+  ) -> plot_min_max
+  
+# Save as picture
+ggsave("images//plot_min_max.png", plot_min_max, device = "png", dpi = 96,
+       width = 9, height = 9, units = c("in"))
+
 
 # Months -----------------------------------------------
 
@@ -727,7 +790,6 @@ plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
 ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
 
-
 # Trends for causes -----------------------------
 
 # 11bv -- Deaths by underlying cause of death (ICD-10, 3-character level), age and gender, 1998-2020
@@ -770,43 +832,7 @@ df_11bv |>
   ggplot(aes(Year, Percentage, color = Cause)) +
   geom_line()
 
-# Cause and year ----------------
 
-# 11bs -- Deaths by underlying cause of death (time series classification), age and gender, 1969-2020
-# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bs.px/
-px_11bs <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bs.px",
-query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("*"),
-  "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*")))
-df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
-
-df_11bs |>
-  rename(Cause = "Underlying cause of death (time series classification)") |>
-  mutate(Year = as.integer(Year)) |>
-  filter(str_detect(Cause, "^[:digit:][:digit:][:space:]"))|>
-  select(Cause, Year, Deaths) |>
-  mutate(Cause = str_remove_all(Cause, " \\(.+\\)")) |>
-  group_by(Cause) |>
-  mutate(Sum_deaths = sum(Deaths)) |>
-  filter(Sum_deaths >= 1000,
-         Cause != "54 No death certificate") |>
-  mutate(Percentage = Deaths/sum(Deaths),
-         Weight = Year-1994.5,
-         Weighted_distance = Percentage * Weight,
-         Sum_weighted_distance = sum(Weighted_distance)) |>
-  ungroup() -> df_11bs
-
-df_11bs |>
-  slice_max(order_by = Sum_weighted_distance, n = 52*8) |>
-  mutate(Cause = as_factor(Cause)) |>
-  ggplot(aes(Year, Deaths, color = fct_reorder2(Cause, Year, Deaths))) +
-  geom_line(size = 1.5) +
-  #paletteer::scale_color_paletteer_d("ggthemes::Jewel_Bright") +
-  theme(legend.position = c(0.3, 0.7),
-        legend.background = element_blank(),
-        legend.title = element_blank())
-
-tääl
 # Gender and cause differences -----------------------------------------
 
 # 11bv -- Deaths by underlying cause of death (ICD-10, 3-character level), age and gender, 1998-2020
