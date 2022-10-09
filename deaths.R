@@ -350,7 +350,7 @@ df_12ah |>
   group_by(Month) |>
   summarise(Deaths_daily = round(mean(Deaths_daily))) |>
   ggplot(aes(Month, Deaths_daily)) +
-  geom_col(fill = "#393b15") +
+  geom_col(fill = "#593112") +
   geom_text(aes(label = Deaths_daily), vjust = 1.5,
             color = "white", size = 4) +
   theme_bw() +
@@ -365,7 +365,7 @@ df_12ah |>
   group_by(Decade, Month_short) |>
   summarise(Deaths_daily = round(mean(Deaths_daily))) |>
   ggplot(aes(Month_short, Deaths_daily)) +
-  geom_col(fill = "#393b15") +
+  geom_col(fill = "#593112") +
   theme_bw() +
   facet_wrap(vars(Decade), nrow = 2) +
   geom_text(aes(label = Deaths_daily),
@@ -587,7 +587,11 @@ df_11by |>
         legend.title = element_blank()) +
   labs(subtitle = "By age group",
        y = NULL,
-       x = NULL) -> s_plot_2
+       x = NULL) +
+  annotate("rect", xmin = 0.45, xmax = 1.49, ymin = 0, ymax = Inf,
+           color = "#EA6B73", fill = NA) +
+  annotate("rect", xmin = 1.51, xmax = 2.55, ymin = 0, ymax = Inf,
+           color = "#6BA3D6", fill = NA) -> s_plot_2
 
 # Combine and annotate
 plot_s_1 <- (s_plot_1 / s_plot_2) +
@@ -694,7 +698,7 @@ create_plot <- function(gender, panel_color) {
   df_12z6_50 |>
     filter(Gender == gender) |>
     ggplot(aes(Month, Deaths_daily)) +
-    geom_col(fill = "#393b15") +
+    geom_col(fill = "#593112") +
     geom_text(aes(label = Deaths_daily), vjust = 1.5,
               color = "white", size = 4) +
     theme_bw() +
