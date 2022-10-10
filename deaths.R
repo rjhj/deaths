@@ -492,8 +492,36 @@ ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
         legend.background = element_blank(),
         plot.title = element_text(hjust = 0.06),
         plot.tag.position = c(0.2, 1)) +
-  labs(subtitle = "Life expectancy by year (1751-2021)", y = "age", x = "year"
+  labs(subtitle = "Life expectancy by year (1751-2021)", y = "age", x = "year",
+       caption = "source: Tilastokeskus 12am"
        ) -> life_plot_1
+
+# 12ag -- Deaths by age (1-year) and sex, 1980-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ag.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ag.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"), "Ikä" = c("*"))
+px_12ag <- pxweb_get(url = url, query = query)
+df_12ag <- as_tibble(as.data.frame(px_12ag, column.name.type = "text", variable.value.type = "text"))
+
+# Create the second plot
+df_12ag |>
+  group_by(Sex, Age) |>
+  summarise(Deaths = sum(Deaths)) |>
+  filter(Age != "Total") |>
+  mutate(Age = as.integer(Age),
+         Sex = as_factor(Sex)) |>
+  ggplot(aes(x = Age, y = Deaths, color = Sex, fill = Sex)) +
+  geom_line() +
+  geom_area(alpha = 0.3, position = 'identity') +
+  scale_color_manual(values = c('#EA6B73', '#6BA3D6')) +
+  scale_fill_manual(values = c('#EA6B73', '#6BA3D6')) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  labs(subtitle = "Deaths by age (1980-2021)",
+       caption = "source: Tilastokeskus 12ag",
+       x = "age", y = "deaths") +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = "none") -> life_plot_2
 
 # 12ap -- Life table by age and sex, 1986-2020
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ap.px/
@@ -520,7 +548,7 @@ df_12ap |>
   mutate(Death_prob = Death_prob / 10 # Changing to percent 
          ) -> df_12ap
 
-# Function used to create the remaining three plots
+# Function used to create plots 3-4
 create_plot <- function(ycol, ylab, subtitle_1) {
   ggplot(df_12ap, aes(Age, .data[[ycol]], color = Sex)) +
     geom_line(size = 1.1, na.rm = T) +
@@ -529,31 +557,32 @@ create_plot <- function(ycol, ylab, subtitle_1) {
     theme(plot.background = element_rect(fill = "#FCFCFC",
                                          colour = "#FCFCFC"),
           legend.position = "none") +
-    labs(subtitle = subtitle_1, y = ylab, x = "age")
+    labs(subtitle = subtitle_1, y = ylab, x = "age",
+         caption = "source: Tilastokeskus 12ap")
 }
 
-# Create the plots 2-4
-create_plot("Life_exp", "years", "Remaining life expectancy (1986-2020)") -> life_plot_2
-create_plot("Survivors", "survivors", "Survival of 100,000 born alive (1986-2020)") -> life_plot_3
+# Create the plots 3-4
+create_plot("Survivors", "survivors", "Estimated survival of 100,000 born alive (1986-2020)") -> life_plot_3
 create_plot("Death_prob", "percent", "Yearly probability of death (1986-2020)") -> life_plot_4
 
 # Combine and annotate plots 1-4
 plot_life_exp_1 <- (life_plot_1 / life_plot_2 | life_plot_3 / life_plot_4) +
   plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
                                                                colour = "#FCFCFC")),
-                  title = "Longetivity by sex",
-                  caption = "sources: Tilastokeskus 12am (1751-2021) & 12ap (1986-2020)")
+                  title = "Longetivity by sex")
+
+# Save image
+ggsave("images//3_plot_life_exp_1.png", plot_life_exp_1, device = "png", dpi = 96,
+       width = 9, height = 7, units = c("in"))
 
 # 12an -- Life expectancy at birth by sex and region
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12an.px/
 px_12an <- pxweb_get(url = 
-                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12an.px",
-                     query = list(
-                       "Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
-                                      "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
-                       "Vuosi" = c("2020"),
-                       "Sukupuoli" = c("1", "2"),
-                       "Tiedot" = c("*")))
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12an.px",
+query = list(
+"Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
+              "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
+"Vuosi" = c("2020"), "Sukupuoli" = c("1", "2"), "Tiedot" = c("*")))
 
 df_12an <- as_tibble(as.data.frame(px_12an, column.name.type = "text", variable.value.type = "text"))
 
@@ -608,9 +637,7 @@ plot_life_exp_2 <- life_exp_region_f_plot + life_exp_region_m_plot +
     title = "Life expectancy by region (2018-2020)",
     caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region")
 
-# Save images
-ggsave("images//3_plot_life_exp_1.png", plot_life_exp_1, device = "png", dpi = 96,
-       width = 9, height = 7, units = c("in"))
+# Save image
 ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 96,
        width = 7, height = 6.3, units = c("in"))
 
@@ -799,101 +826,24 @@ plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
 ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
 
-# Trends for causes -----------------------------
+# Area plot -----------------------------
+# 12ag -- Deaths by age (1-year) and sex, 1980-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ag.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ag.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"), "Ikä" = c("*"))
+px_12ag <- pxweb_get(url = url, query = query)
+df_12ag <- as_tibble(as.data.frame(px_12ag, column.name.type = "text", variable.value.type = "text"))
 
-# 11bv -- Deaths by underlying cause of death (ICD-10, 3-character level), age and gender, 1998-2020
-# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bv.px/
-px_11bv <- pxweb_get(url = 
-                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bv.px",
-                     query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("*"),
-                                  "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (ICD-10, 3-merkkitaso)" = c("*")))
-df_11bv <- as_tibble(as.data.frame(px_11bv, column.name.type = "text", variable.value.type = "text"))
-
-df_11bv |>
-  rename(Cause = "Underlying cause of death (ICD-10, 3-character level)") |>
-  select(Cause, Year, Deaths) |>
-  replace_na(list(Deaths = 0)) -> df_11bv
-
-# Create filter
-df_11bv |>  
-  group_by(Cause) |>
+df_12ag |>
+  group_by(Sex, Age) |>
   summarise(Deaths = sum(Deaths)) |>
-  filter(Deaths > 10) |>
-  filter(str_detect(Cause, "^[:alpha:][:digit:][:digit:][:space:]")) |>
-  select(Cause) -> causes_to_examine
-
-# Filtering join with original data
-df_11bv |>
-  semi_join(causes_to_examine, by = c("Cause")) |>
-  mutate(Year = as.integer(Year)) -> df_11bv
-
-df_11bv |>
-  group_by(Cause) |>
-  mutate(Percentage = Deaths/sum(Deaths),
-         Distance_to_zero = abs(Percentage - 1/23),
-         Weight = Year-2009,
-         Weighted_distance = Distance_to_zero * Weight,
-         Sum_weighted_distance = sum(Weighted_distance)) |>
-  ungroup() -> df_11bv
-
-df_11bv |>
-  slice_min(order_by = Sum_weighted_distance, n = 23*20) |>
-  ggplot(aes(Year, Percentage, color = Cause)) +
-  geom_line()
-
-
-# Gender and cause differences -----------------------------------------
-
-# 11bv -- Deaths by underlying cause of death (ICD-10, 3-character level), age and gender, 1998-2020
-# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bv.px/
-px_11bv <- pxweb_get(url = 
-"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bv.px",
-query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("*"),
-  "Ikä" = c("*"), "Tilaston peruskuolemansyy (ICD-10, 3-merkkitaso)" = c("*")))
-
-df_11bv <- as_tibble(as.data.frame(px_11bv, column.name.type = "text", variable.value.type = "text"))
-
-unique(df_11bv$Age)
-
-df_11bv |>
-  rename(Cause = "Underlying cause of death (ICD-10, 3-character level)") |>
-  filter(!is.na(Deaths)) |>
   filter(Age != "Total") |>
-  group_by(Cause, Gender, Age) |>
-  summarise(Deaths = sum(Deaths)) |>
-  mutate(Age_group = case_when(Age %in% c("0", "1 - 4", "5 - 9",
-                                          "10 - 14", "15 - 19") ~ "0 - 19",
-                               Age %in% c("20 - 24", "25 - 29",
-                                          "30 - 34", "35 - 39") ~ "20 - 39",
-                               Age %in% c("40 - 44", "45 - 49",
-                                          "50 - 54", "55 - 59") ~ "40 - 59",
-                               Age %in% c("60 - 64", "65 - 69",
-                                          "70 - 74", "75 - 79", "80 - 84",
-                                          "85 - 89", "90 - 94", "95 -") ~ "60 - ")) |>
-  group_by(Cause, Gender, Age_group) |>
-  summarise(Deaths = sum(Deaths)) |>
-  pivot_wider(names_from = Gender, values_from = Deaths) -> df_11bv
-
-df_11bv |>
-  filter((Females + Males) > 50,
-         Females > 1,
-         Males > 1) |>
-  mutate(F_percent = Females / (Females + Males),
-         M_percent = Males / (Females +  Males)) |>
-  group_by(Age_group) |>
-  slice_max(order_by = M_percent, n = 10) |> View() 
-  
-  slice_max()
-
-df_11bv |>
-  arrange(desc(F_to_M_ratio))  |> View()
-
-df_11bv |>
-  arrange(desc(M_to_F_ratio)) |> View()
-
-# Jos sittenkin latailis ikäjakautuman mukaan, esim. neljä eri ryhmää.
-
-# Laittais onnettomuudet sen mukaan ovatko tulleet yleisemmäksi vai harvinaisemmaksi
-# Tai sittenkin kaikista.
-
-
+  mutate(Age = as.integer(Age),
+    Sex = as_factor(Sex)) |>
+  ggplot(aes(x = Age, y = Deaths, color = Sex, fill = Sex)) +
+  geom_line() +
+  geom_area(alpha = 0.3, position = 'identity') +
+  scale_color_manual(values = c('#EA6B73', '#6BA3D6')) +
+  scale_fill_manual(values = c('#EA6B73', '#6BA3D6')) +
+  labs(subtitle = "Deaths by age (1980-2021)",
+       caption = "source: Tilastokeskus 12ag")

@@ -623,13 +623,43 @@ df_12am |>
 # Create the first of four plots
 ggplot(df_12am, aes(Year, Life_exp, color = Sex)) +
   geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.25, 0.75),
+  scale_color_manual(values = c("#6BA3D6", "#EA6B73")) +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.25, 0.75),
         legend.background = element_blank(),
         plot.title = element_text(hjust = 0.06),
         plot.tag.position = c(0.2, 1)) +
-  labs(subtitle = "Life expectancy by year (1751-2021)", y = "age", x = "year"
+  labs(subtitle = "Life expectancy by year (1751-2021)", y = "age", x = "year",
+       caption = "source: Tilastokeskus 12am"
        ) -> life_plot_1
+
+# 12ag -- Deaths by age (1-year) and sex, 1980-2021
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ag.px/
+url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ag.px"
+query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"), "Ikä" = c("*"))
+px_12ag <- pxweb_get(url = url, query = query)
+df_12ag <- as_tibble(as.data.frame(px_12ag, column.name.type = "text", variable.value.type = "text"))
+
+# Create the second plot
+df_12ag |>
+  group_by(Sex, Age) |>
+  summarise(Deaths = sum(Deaths)) |>
+  filter(Age != "Total") |>
+  mutate(Age = as.integer(Age),
+         Sex = as_factor(Sex)) |>
+  ggplot(aes(x = Age, y = Deaths, color = Sex, fill = Sex)) +
+  geom_line() +
+  geom_area(alpha = 0.3, position = 'identity') +
+  scale_color_manual(values = c('#EA6B73', '#6BA3D6')) +
+  scale_fill_manual(values = c('#EA6B73', '#6BA3D6')) +
+  scale_y_continuous(labels = scales::label_comma()) +
+  labs(subtitle = "Deaths by age (1980-2021)",
+       caption = "source: Tilastokeskus 12ag",
+       x = "age", y = "deaths") +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = "none") -> life_plot_2
 
 # 12ap -- Life table by age and sex, 1986-2020
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ap.px/
@@ -656,36 +686,41 @@ df_12ap |>
   mutate(Death_prob = Death_prob / 10 # Changing to percent 
          ) -> df_12ap
 
-# Function used to create the remaining three plots
+# Function used to create plots 3-4
 create_plot <- function(ycol, ylab, subtitle_1) {
   ggplot(df_12ap, aes(Age, .data[[ycol]], color = Sex)) +
     geom_line(size = 1.1, na.rm = T) +
-    scale_colour_hue(direction = -1) +
+    scale_color_manual(values = c("#6BA3D6", "#EA6B73")) +
     scale_y_continuous(labels = scales::label_comma()) +
-    theme(legend.position = "none") +
-    labs(subtitle = subtitle_1, y = ylab, x = "age")
+    theme(plot.background = element_rect(fill = "#FCFCFC",
+                                         colour = "#FCFCFC"),
+          legend.position = "none") +
+    labs(subtitle = subtitle_1, y = ylab, x = "age",
+         caption = "source: Tilastokeskus 12ap")
 }
 
-# Create the plots 2-4
-create_plot("Life_exp", "years", "Remaining life expectancy (1986-2020)") -> life_plot_2
-create_plot("Survivors", "survivors", "Survival of 100,000 born alive (1986-2020)") -> life_plot_3
+# Create the plots 3-4
+create_plot("Survivors", "survivors", "Estimated survival of 100,000 born alive (1986-2020)") -> life_plot_3
 create_plot("Death_prob", "percent", "Yearly probability of death (1986-2020)") -> life_plot_4
 
 # Combine and annotate plots 1-4
 plot_life_exp_1 <- (life_plot_1 / life_plot_2 | life_plot_3 / life_plot_4) +
-  plot_annotation(title = "Longetivity by sex",
-                  caption = "sources: Tilastokeskus 12am (1751-2021) & 12ap (1986-2020)")
+  plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                               colour = "#FCFCFC")),
+                  title = "Longetivity by sex")
+
+# Save image
+ggsave("images//3_plot_life_exp_1.png", plot_life_exp_1, device = "png", dpi = 96,
+       width = 9, height = 7, units = c("in"))
 
 # 12an -- Life expectancy at birth by sex and region
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12an.px/
 px_12an <- pxweb_get(url = 
-                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12an.px",
-                     query = list(
-                       "Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
-                                      "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
-                       "Vuosi" = c("2020"),
-                       "Sukupuoli" = c("1", "2"),
-                       "Tiedot" = c("*")))
+"https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12an.px",
+query = list(
+"Maakunta" = c("MK01", "MK02", "MK04", "MK05", "MK06", "MK07", "MK08", "MK09", "MK10", 
+              "MK11", "MK12", "MK13", "MK14", "MK15", "MK16", "MK17", "MK18", "MK19", "MK21"),
+"Vuosi" = c("2020"), "Sukupuoli" = c("1", "2"), "Tiedot" = c("*")))
 
 df_12an <- as_tibble(as.data.frame(px_12an, column.name.type = "text", variable.value.type = "text"))
 
@@ -705,11 +740,13 @@ df_life_region |>
   geom_sf(aes(geometry = geom, fill = Life_exp)) +
   scale_fill_distiller(palette = "Spectral", direction = 1, n.breaks = 9) +
   labs(subtitle = "Females", fill = NULL) +
-  theme(legend.position = c(0.15, 0.63),
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.15, 0.63),
         legend.background = element_blank(),
         legend.key.size = unit(0.4, "in"),
         legend.text = element_text(size = 9),
-        panel.background = element_rect(colour = "#FF0000FF"),
+        panel.background = element_rect(colour = "#EA6B73"),
         plot.margin = margin(r = 1, unit = "cm"),
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_f_plot
@@ -721,22 +758,24 @@ df_life_region |>
   geom_sf(aes(geometry = geom, fill = Life_exp)) +
   scale_fill_distiller(palette = "Spectral", direction = 1, n.breaks = 9) +
   labs(subtitle = "Males", fill = NULL) +
-  theme(legend.position = c(0.15, 0.63),
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.15, 0.63),
         legend.background = element_blank(),
         legend.key.size = unit(0.4, "in"),
         legend.text = element_text(size = 9),
-        panel.background = element_rect(colour = "#00FFFFFF"),
+        panel.background = element_rect(colour = "#6BA3D6"),
         plot.subtitle = element_text(size = 13)
   ) -> life_exp_region_m_plot
 
 # Combine and annotate region plots
 plot_life_exp_2 <- life_exp_region_f_plot + life_exp_region_m_plot +
-  plot_annotation(title = "Life expectancy by region (2018-2020)",
+  plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                                     colour = "#FCFCFC")),
+    title = "Life expectancy by region (2018-2020)",
     caption = "source: Tilastokeskus 12an -- Life expectancy at birth by sex and region")
 
-# Save images
-ggsave("images//3_plot_life_exp_1.png", plot_life_exp_1, device = "png", dpi = 96,
-       width = 9, height = 7, units = c("in"))
+# Save image
 ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 96,
        width = 7, height = 6.3, units = c("in"))
 ```
