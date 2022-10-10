@@ -122,6 +122,128 @@ ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
 
 ![](images/1_plot_yearly.png)
 
+## Cause and year
+```{r Cause_and_year}
+# 11bs -- Deaths by underlying cause of death (time series classification), age and gender, 1969-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bs.px/
+px_11bs <- pxweb_get(url = 
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bs.px",
+                     query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("*"),
+                                  "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*")))
+df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
+
+# Filter out combined causes (e.g. 00-54 Total), calculate total deaths 
+df_11bs |>
+  rename(Cause = "Underlying cause of death (time series classification)") |>
+  mutate(Year = as.integer(Year)) |>
+  filter(str_detect(Cause, "^[:digit:][:digit:][:space:]")) |>
+  select(Cause, Year, Deaths) |>
+  mutate(Cause = str_remove_all(Cause, " \\(.+\\)")) |>
+  group_by(Cause) |>
+  mutate(Total_deaths = sum(Deaths)) |>
+  ungroup() -> df_11bs
+
+# Find 19 most common causes to be used with fct_other() later
+df_11bs |>
+  slice_max(order_by = Total_deaths, n = 52*19) |>
+  distinct(Cause) -> most_common_causes
+
+# Draw plot for yearly deaths by cause
+df_11bs |>
+  mutate(Cause = as_factor(Cause)) |>
+  mutate(Cause = fct_other(Cause, keep = most_common_causes$Cause,
+         other_level = "Other causes combined")) |>
+  group_by(Cause, Year) |>
+  summarise(Deaths = sum(Deaths), Total_deaths = sum(Total_deaths)) |>
+  ungroup() |>
+  mutate(Cause = as_factor(str_wrap(Cause, 40))) |>
+  mutate(Cause = fct_reorder(Cause, Total_deaths)) |>
+  ggplot(aes(Year, Deaths, fill = Cause)) +
+  geom_area(alpha=0.6 , size=1, colour="black") +
+  theme_classic() +
+  paletteer::scale_fill_paletteer_d("cartography::multi.pal", dynamic = T) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0))) + 
+  scale_y_continuous(expand = expansion(mult = c(0, 0)),
+                     labels = scales::label_comma()) +
+  theme(plot.background = element_rect(fill = "#FCFCFC", colour = "#FCFCFC"),
+        legend.title = element_blank(),
+        legend.background = element_blank(),
+        legend.key.size = unit(.84, "cm")) +
+  labs(x = NULL, y = "yearly deaths") -> cause_year_plot
+
+# Add annotations
+cause_year_plot + plot_annotation(
+  theme = theme(plot.background = element_rect(fill = "#FCFCFC", colour = "#FCFCFC")),
+  title = "Causes of death 1969-2020",
+  caption = "source: Tilastokeskus 11bs -- Deaths by underlying cause of death"
+) -> plot_cause_year
+
+# Save picture
+ggsave("images//plot_cause_year.png", plot_cause_year, device = "png", dpi = 96,
+       width = 9, height = 7.5, units = c("in"))
+
+# Calculate a trend score for causes (I'm just using improvised method)
+df_11bs |>
+  group_by(Cause) |>
+  mutate(Total_deaths = sum(Deaths)) |>
+  filter(Total_deaths >= 1000,
+         Cause != "54 No death certificate") |>
+  mutate(Percentage = Deaths/sum(Deaths),
+         Weight = (Year-1994.5)/25.5,
+         Weighted_percentage = Percentage * Weight,
+         Trend_score = sum(Weighted_percentage)) |>
+  ungroup() -> df_11bs
+
+# Function to draw the graphs
+create_trend_graph <- function(dt, legend_position, subtitle, palette){
+  ggplot(dt, aes(Year, Deaths, color = Cause)) +
+    geom_line(size = 1.5) +
+    theme_bw() +
+    scale_y_continuous(limits = c(0, 10700)) +
+    paletteer::scale_color_paletteer_d(palette) +
+    labs(subtitle = subtitle,
+         x = NULL, y = NULL) +
+    theme(plot.background = element_rect(fill = "#FCFCFC",
+                                         colour = "#FCFCFC"),
+          legend.position = legend_position,
+          legend.background = element_blank(),
+          legend.title = element_blank())
+}
+
+# Get 8 cases with smallest trend scores and plot them
+df_11bs |>
+  slice_min(order_by = Trend_score, n = 52*8) |>
+  mutate(Cause = as_factor(Cause),
+         Cause = fct_reorder2(Cause, desc(Year), Deaths)) |>
+  create_trend_graph(c(0.22, 0.69),
+                     "Causes of death getting less common",
+                     "ggthemes::calc") -> min_plot
+
+# Get 8 cases with largest trend scores and plot them
+df_11bs |>
+  slice_max(order_by = Trend_score, n = 52*8) |>
+  mutate(Cause = as_factor(Cause),
+         Cause = fct_reorder2(Cause, Year, Deaths)) |>
+  create_trend_graph(c(0.35, 0.69),
+                     "Causes of death getting more common",
+                     "ggpomological::pomological_palette") -> max_plot
+
+# Combine and annotate plots
+(min_plot / max_plot) +
+  plot_annotation(
+    theme = theme(plot.background = element_rect(fill = "#FCFCFC", 
+                                                 colour = "#FCFCFC")),
+    title = "Trends for 1969 - 2020 (deaths by year, only causes of death with at least 1000 total deaths)",
+    caption = "source: Tilastokeskus 11bs -- Deaths by underlying cause of death, 1969-2020"
+  ) -> plot_min_max
+
+# Save as picture
+ggsave("images//plot_min_max.png", plot_min_max, device = "png", dpi = 96,
+       width = 9, height = 9, units = c("in"))
+```
+![](images/plot_cause_year.png)
+![](images/plot_min_max.png)
+
 ## Cause and region
 
 ```{r Cause_and_region}
@@ -455,83 +577,6 @@ Show/Hide
 ![](images/region/64.png)
 ![](images/region/65.png)
 </div>
-
-## Cause and year
-```{r Cause_and_year}
-# 11bs -- Deaths by underlying cause of death (time series classification), age and gender, 1969-2020
-# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11bs.px/
-px_11bs <- pxweb_get(url = 
-                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11bs.px",
-                     query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("*"),
-                                  "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*")))
-df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
-
-# Calculate a trend score for causes (I'm using just improvised method)
-df_11bs |>
-  rename(Cause = "Underlying cause of death (time series classification)") |>
-  mutate(Year = as.integer(Year)) |>
-  filter(str_detect(Cause, "^[:digit:][:digit:][:space:]"))|>
-  select(Cause, Year, Deaths) |>
-  mutate(Cause = str_remove_all(Cause, " \\(.+\\)")) |>
-  group_by(Cause) |>
-  mutate(Total_deaths = sum(Deaths)) |>
-  filter(Total_deaths >= 1000,
-         Cause != "54 No death certificate") |>
-  mutate(Percentage = Deaths/sum(Deaths),
-         Weight = (Year-1994.5)/25.5,
-         Weighted_percentage = Percentage * Weight,
-         Trend_score = sum(Weighted_percentage)) |>
-  ungroup() -> df_11bs
-
-# Function to draw the graphs
-create_trend_graph <- function(dt, legend_position, subtitle, palette){
-  ggplot(dt, aes(Year, Deaths, color = Cause)) +
-    geom_line(size = 1.5) +
-    theme_bw() +
-    scale_y_continuous(limits = c(0, 10700)) +
-    paletteer::scale_color_paletteer_d(palette) +
-    labs(subtitle = subtitle,
-         x = NULL, y = NULL) +
-    theme(plot.background = element_rect(fill = "#FCFCFC",
-                                         colour = "#FCFCFC"),
-          legend.position = legend_position,
-          legend.background = element_blank(),
-          legend.title = element_blank())
-}
-
-# Get 8 cases with smallest trend scores and plot them
-df_11bs |>
-  slice_min(order_by = Trend_score, n = 52*8) |>
-  mutate(Cause = as_factor(Cause),
-         Cause = fct_reorder2(Cause, desc(Year), Deaths)) |>
-  create_trend_graph(c(0.22, 0.69),
-                     "Causes of deaths getting less common",
-                     "ggthemes::calc") -> min_plot
-
-# Get 8 cases with largest trend scores and plot them
-df_11bs |>
-  slice_max(order_by = Trend_score, n = 52*8) |>
-  mutate(Cause = as_factor(Cause),
-         Cause = fct_reorder2(Cause, Year, Deaths)) |>
-  create_trend_graph(c(0.35, 0.69),
-                    "Causes of deaths getting more common",
-                    "ggpomological::pomological_palette") -> max_plot
-
-# Combine and annotate plots
-(min_plot / max_plot) +
-  plot_annotation(
-    theme = theme(plot.background = element_rect(fill = "#FCFCFC", 
-                                                 colour = "#FCFCFC")),
-    title = "Trends for 1969 - 2020 (deaths by year, only causes of deaths with at least 1000 total deaths)",
-    caption = "source: Tilastokeskus 11bs -- Deaths by underlying cause of death, 1969-2020"
-  ) -> plot_min_max
-  
-# Save as picture
-ggsave("images//plot_min_max.png", plot_min_max, device = "png", dpi = 96,
-       width = 9, height = 9, units = c("in"))
-```
-![](images/plot_min_max.png)
-
 ## By month
 
 ```{r Months}
