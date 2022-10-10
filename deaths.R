@@ -11,7 +11,7 @@ library(scales) # for label_comma()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
 library(paletteer) # for scale_fill_paletteer_d()
-library(rmdformats)
+library(rmdformats) # for readthedown template
 
 # History ------------------------------------------------------------------- 
 # 12at -- Vital statistics and population, 1749-2021
@@ -328,6 +328,7 @@ px_11bs <- pxweb_get(url =
                                   "Ikä" = c("SSS"), "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*")))
 df_11bs <- as_tibble(as.data.frame(px_11bs, column.name.type = "text", variable.value.type = "text"))
 
+# Calculate a trend score for causes (I'm using just improvised method)
 df_11bs |>
   rename(Cause = "Underlying cause of death (time series classification)") |>
   mutate(Year = as.integer(Year)) |>
@@ -335,20 +336,22 @@ df_11bs |>
   select(Cause, Year, Deaths) |>
   mutate(Cause = str_remove_all(Cause, " \\(.+\\)")) |>
   group_by(Cause) |>
-  mutate(Sum_deaths = sum(Deaths)) |>
-  filter(Sum_deaths >= 1000,
+  mutate(Total_deaths = sum(Deaths)) |>
+  filter(Total_deaths >= 1000,
          Cause != "54 No death certificate") |>
   mutate(Percentage = Deaths/sum(Deaths),
-         Weight = Year-1994.5,
-         Weighted_distance = Percentage * Weight,
-         Sum_weighted_distance = sum(Weighted_distance)) |>
+         Weight = (Year-1994.5)/25.5,
+         Weighted_percentage = Percentage * Weight,
+         Trend_score = sum(Weighted_percentage)) |>
   ungroup() -> df_11bs
 
-create_trend_graph <- function(dt, legend_position, subtitle_1){
+# Function to draw the graphs
+create_trend_graph <- function(dt, legend_position, subtitle, palette){
   ggplot(dt, aes(Year, Deaths, color = Cause)) +
     geom_line(size = 1.5) +
     theme_bw() +
-    labs(subtitle = subtitle_1,
+    paletteer::scale_color_paletteer_d(palette) +
+    labs(subtitle = subtitle,
          x = NULL, y = NULL) +
     theme(plot.background = element_rect(fill = "#FCFCFC",
                                          colour = "#FCFCFC"),
@@ -357,30 +360,36 @@ create_trend_graph <- function(dt, legend_position, subtitle_1){
           legend.title = element_blank())
 }
 
+# Get 8 cases with smallest trend scores and plot them
 df_11bs |>
-  slice_min(order_by = Sum_weighted_distance, n = 52*8) |>
+  slice_min(order_by = Trend_score, n = 52*8) |>
   mutate(Cause = as_factor(Cause),
          Cause = fct_reorder2(Cause, desc(Year), Deaths)) |>
-  create_trend_graph(c(0.84, 0.73), "Causes getting less common") -> min_plot
+  create_trend_graph(c(0.84, 0.73),
+                     "Causes of deaths getting less common",
+                     "ggthemes::calc") -> min_plot
 
+# Get 8 cases with largest trend scores and plot them
 df_11bs |>
-  slice_max(order_by = Sum_weighted_distance, n = 52*8) |>
+  slice_max(order_by = Trend_score, n = 52*8) |>
   mutate(Cause = as_factor(Cause),
          Cause = fct_reorder2(Cause, Year, Deaths)) |>
-  create_trend_graph(c(0.35, 0.69), "Causes getting more common") -> max_plot
+  create_trend_graph(c(0.35, 0.69),
+                    "Causes of deaths getting more common",
+                    "ggpomological::pomological_palette") -> max_plot
 
+# Combine and annotate plots
 (min_plot / max_plot) +
   plot_annotation(
     theme = theme(plot.background = element_rect(fill = "#FCFCFC", 
                                                  colour = "#FCFCFC")),
-    title = "Trends (deaths by year, 1969 - 2020)",
+    title = "Trends for 1969 - 2020 (deaths by year, only causes of deaths with at least 1000 total deaths)",
     caption = "source: Tilastokeskus 11bs -- Deaths by underlying cause of death, 1969-2020"
   ) -> plot_min_max
   
 # Save as picture
 ggsave("images//plot_min_max.png", plot_min_max, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
-
 
 # Months -----------------------------------------------
 
@@ -805,7 +814,7 @@ df_11bv |>
   select(Cause, Year, Deaths) |>
   replace_na(list(Deaths = 0)) -> df_11bv
 
-# Create filter with only single cases with more than 100 deaths
+# Create filter
 df_11bv |>  
   group_by(Cause) |>
   summarise(Deaths = sum(Deaths)) |>
