@@ -350,6 +350,7 @@ create_trend_graph <- function(dt, legend_position, subtitle, palette){
   ggplot(dt, aes(Year, Deaths, color = Cause)) +
     geom_line(size = 1.5) +
     theme_bw() +
+    scale_y_continuous(limits = c(0, 10700)) +
     paletteer::scale_color_paletteer_d(palette) +
     labs(subtitle = subtitle,
          x = NULL, y = NULL) +
@@ -365,7 +366,7 @@ df_11bs |>
   slice_min(order_by = Trend_score, n = 52*8) |>
   mutate(Cause = as_factor(Cause),
          Cause = fct_reorder2(Cause, desc(Year), Deaths)) |>
-  create_trend_graph(c(0.84, 0.73),
+  create_trend_graph(c(0.22, 0.69),
                      "Causes of deaths getting less common",
                      "ggthemes::calc") -> min_plot
 
@@ -509,7 +510,8 @@ df_12ag |>
   summarise(Deaths = sum(Deaths)) |>
   filter(Age != "Total") |>
   mutate(Age = as.integer(Age),
-         Sex = as_factor(Sex)) |>
+         Sex = as_factor(Sex),
+         Deaths = Deaths / 41) |>
   ggplot(aes(x = Age, y = Deaths, color = Sex, fill = Sex)) +
   geom_line() +
   geom_area(alpha = 0.3, position = 'identity') +
@@ -518,7 +520,7 @@ df_12ag |>
   scale_y_continuous(labels = scales::label_comma()) +
   labs(subtitle = "Deaths by age (1980-2021)",
        caption = "source: Tilastokeskus 12ag",
-       x = "age", y = "deaths") +
+       x = "age", y = "yearly deaths") +
   theme(plot.background = element_rect(fill = "#FCFCFC",
                                        colour = "#FCFCFC"),
         legend.position = "none") -> life_plot_2
@@ -826,24 +828,3 @@ plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
 ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
 
-# Area plot -----------------------------
-# 12ag -- Deaths by age (1-year) and sex, 1980-2021
-# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12ag.px/
-url = "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/kuol/statfin_kuol_pxt_12ag.px"
-query = list("Sukupuoli" = c("1", "2"), "Tiedot"=c("*"), "Vuosi"=c("*"), "Ikä" = c("*"))
-px_12ag <- pxweb_get(url = url, query = query)
-df_12ag <- as_tibble(as.data.frame(px_12ag, column.name.type = "text", variable.value.type = "text"))
-
-df_12ag |>
-  group_by(Sex, Age) |>
-  summarise(Deaths = sum(Deaths)) |>
-  filter(Age != "Total") |>
-  mutate(Age = as.integer(Age),
-    Sex = as_factor(Sex)) |>
-  ggplot(aes(x = Age, y = Deaths, color = Sex, fill = Sex)) +
-  geom_line() +
-  geom_area(alpha = 0.3, position = 'identity') +
-  scale_color_manual(values = c('#EA6B73', '#6BA3D6')) +
-  scale_fill_manual(values = c('#EA6B73', '#6BA3D6')) +
-  labs(subtitle = "Deaths by age (1980-2021)",
-       caption = "source: Tilastokeskus 12ag")

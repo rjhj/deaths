@@ -39,6 +39,7 @@ library(scales) # for label_comma()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
 library(paletteer) # for scale_fill_paletteer_d()
+library(rmdformats) # for readthedown template
 ```
 
 ## History
@@ -487,6 +488,7 @@ create_trend_graph <- function(dt, legend_position, subtitle, palette){
   ggplot(dt, aes(Year, Deaths, color = Cause)) +
     geom_line(size = 1.5) +
     theme_bw() +
+    scale_y_continuous(limits = c(0, 10700)) +
     paletteer::scale_color_paletteer_d(palette) +
     labs(subtitle = subtitle,
          x = NULL, y = NULL) +
@@ -502,7 +504,7 @@ df_11bs |>
   slice_min(order_by = Trend_score, n = 52*8) |>
   mutate(Cause = as_factor(Cause),
          Cause = fct_reorder2(Cause, desc(Year), Deaths)) |>
-  create_trend_graph(c(0.84, 0.73),
+  create_trend_graph(c(0.22, 0.69),
                      "Causes of deaths getting less common",
                      "ggthemes::calc") -> min_plot
 
@@ -647,7 +649,8 @@ df_12ag |>
   summarise(Deaths = sum(Deaths)) |>
   filter(Age != "Total") |>
   mutate(Age = as.integer(Age),
-         Sex = as_factor(Sex)) |>
+         Sex = as_factor(Sex),
+         Deaths = Deaths / 41) |>
   ggplot(aes(x = Age, y = Deaths, color = Sex, fill = Sex)) +
   geom_line() +
   geom_area(alpha = 0.3, position = 'identity') +
@@ -656,7 +659,7 @@ df_12ag |>
   scale_y_continuous(labels = scales::label_comma()) +
   labs(subtitle = "Deaths by age (1980-2021)",
        caption = "source: Tilastokeskus 12ag",
-       x = "age", y = "deaths") +
+       x = "age", y = "yearly deaths") +
   theme(plot.background = element_rect(fill = "#FCFCFC",
                                        colour = "#FCFCFC"),
         legend.position = "none") -> life_plot_2
@@ -779,11 +782,9 @@ plot_life_exp_2 <- life_exp_region_f_plot + life_exp_region_m_plot +
 ggsave("images//3_plot_life_exp_2.png", plot_life_exp_2, device = "png", dpi = 96,
        width = 7, height = 6.3, units = c("in"))
 ```
-
 ![](images/3_plot_life_exp_1.png) ![](images/3_plot_life_exp_2.png)
 
 ## Suicides
-
 ```{r Suicides}
 # 11by -- Suicides by age and gender, 1921-2020
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11by.px/
@@ -799,8 +800,10 @@ df_11by |>
          Sex = as_factor(Gender)) |>
   ggplot(aes(Year, Suicides, color = Sex)) +
   geom_line(size = 1.1) +
-  scale_colour_hue(direction = -1) +
-  theme(legend.position = c(0.08, 0.9),
+  scale_color_manual(values = c('#6BA3D6', '#EA6B73')) +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.08, 0.9),
         legend.background = element_blank(),
         legend.title = element_blank()) +
   labs(subtitle = "By year",
@@ -819,16 +822,24 @@ df_11by |>
   scale_y_continuous(expand = expansion(mult = c(0))) +
   paletteer::scale_fill_paletteer_d("ggthemes::manyeys") +
   guides(fill = guide_legend(ncol = 2, byrow = F)) +
-  theme(legend.position = c(0.12, 0.68),
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.12, 0.68),
         legend.background = element_blank(),
         legend.title = element_blank()) +
   labs(subtitle = "By age group",
        y = NULL,
-       x = NULL) -> s_plot_2
+       x = NULL) +
+  annotate("rect", xmin = 0.45, xmax = 1.49, ymin = 0, ymax = Inf,
+           color = "#EA6B73", fill = NA) +
+  annotate("rect", xmin = 1.51, xmax = 2.55, ymin = 0, ymax = Inf,
+           color = "#6BA3D6", fill = NA) -> s_plot_2
 
 # Combine and annotate
 plot_s_1 <- (s_plot_1 / s_plot_2) +
-  plot_annotation(title = "Suicides (1921-2020)",
+  plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                               colour = "#FCFCFC")),
+                  title = "Suicides (1921-2020)",
                   caption = "source: Tilastokeskus 11by -- Suicides by age and gender, 1921-2020")
 
 # Save image
@@ -874,13 +885,16 @@ df_12ef |>
   mutate(Cause = factor(Cause, levels = cause_levels)) |>
   ggplot(aes(Cause, Deaths, fill = Sex)) +
   geom_col() +
+  scale_fill_manual(values = c("#EA6B73", "#6BA3D6")) +
   scale_x_discrete(expand = expansion(mult = c(0, 0))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0))) +
   coord_flip() +
   labs(subtitle = "By method (1998 - 2020)",
        caption = "source: Tilastokeskus 12ef -- Accidental and violent deaths by underlying cause of death, 1998-2020",
        x = NULL, y = NULL) +
-  theme(legend.position = c(0.91, 0.2),
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.91, 0.2),
         legend.background = element_blank(),
         legend.title = element_blank(),
         axis.text.y = element_text(size = 10),
@@ -926,23 +940,27 @@ create_plot <- function(gender, panel_color) {
   df_12z6_50 |>
     filter(Gender == gender) |>
     ggplot(aes(Month, Deaths_daily)) +
-    geom_col(fill = "#393b15") +
+    geom_col(fill = "#593112") +
     geom_text(aes(label = Deaths_daily), vjust = 1.5,
               color = "white", size = 4) +
     theme_bw() +
     labs(subtitle = gender,
          y = NULL,
          x = NULL) +
-    theme(panel.border = element_rect(colour = panel_color))
+    theme(plot.background = element_rect(fill = "#FCFCFC",
+                                         colour = "#FCFCFC"),
+          panel.border = element_rect(colour = panel_color))
 }
 
 # Create monthly plots
-create_plot("Females", "#FF0000FF") -> F_plot
-create_plot("Males", "#00FFFFFF") -> M_plot
+create_plot("Females", "#EA6B73") -> F_plot
+create_plot("Males", "#6BA3D6") -> M_plot
 
 # Combine and annotate
 (F_plot / M_plot) +
-plot_annotation(title = "Daily suicides by month (Jan 1971 - Dec 2020)",
+plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
+                                                             colour = "#FCFCFC")),
+                title = "Daily suicides by month (Jan 1971 - Dec 2020)",
                 subtitle = "Warmer months have higher suicide rates",
                 caption = "source: Tilastokeskus 2z6 -- Deaths by month, underlying cause of death and gender"
                 ) -> plot_s_3
@@ -951,5 +969,4 @@ plot_annotation(title = "Daily suicides by month (Jan 1971 - Dec 2020)",
 ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
 ```
-
 ![](images/4_plot_s_1.png) ![](images/4_plot_s_2.png) ![](images/4_plot_s_3.png)
