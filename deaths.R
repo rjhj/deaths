@@ -1,3 +1,5 @@
+# Libraries -----------------------------------------------------------
+
 # Main libraries, used in each section
 library(tidyverse)
 library(patchwork)
@@ -10,8 +12,10 @@ library(geofi) # for get_municipalities()
 library(scales) # for label_comma()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
-library(paletteer) # for scale_fill_paletteer_d()
+library(paletteer) # for scale_*_paletteer_*()
+library(geomtextpath)
 library(rmdformats) # for readthedown template
+
 
 # History ------------------------------------------------------------------- 
 # 12at -- Vital statistics and population, 1749-2021
@@ -123,7 +127,7 @@ df_11bs |>
 df_11bs |>
   mutate(Cause = as_factor(Cause)) |>
   mutate(Cause = fct_other(Cause, keep = most_common_causes$Cause,
-         other_level = "Other causes combined")) |>
+                           other_level = "Other causes combined")) |>
   group_by(Cause, Year) |>
   summarise(Deaths = sum(Deaths), Total_deaths = sum(Total_deaths)) |>
   ungroup() |>
@@ -153,17 +157,126 @@ cause_year_plot + plot_annotation(
 ggsave("images//plot_cause_year.png", plot_cause_year, device = "png", dpi = 96,
        width = 9, height = 7.5, units = c("in"))
 
+##
+##
+##
+##
+
+#11br -- Deaths, age-standardised and crude deaths rates by underlying cause of death
+# (time series classification) and gender, whole population and persons aged 15-64, 1971-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11br.px/
+px_11br <- pxweb_get(url = 
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11br.px",
+                     query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("ksyyikav", "ksyycdr"),
+                                  "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("25")))
+df_11br_25 <- as_tibble(as.data.frame(px_11br, column.name.type = "text", variable.value.type = "text"))
+
+names(df_11br_25)
+
+df_11br_25 |>
+  rename(Cause = "Underlying cause of death (time series classification)",
+         Standardized_100k = "Age-standardised death rate, whole population (1/100 000)",
+         Crude_100k = "Crude death rate, whole population (1/100 000)") |>
+  pivot_longer(cols = c("Standardized_100k", "Crude_100k"),  names_to = "Type", values_to = "Deaths") |>
+  mutate(Type = as_factor(Type), Year = as.integer(Year)) |>
+  ggplot(aes(Year, Deaths, color = Type)) +
+  geom_line()
+
+##
+##
+##
+##
+
+###
+###
+###
+###
+
+#11br -- Deaths, age-standardised and crude deaths rates by underlying cause of death
+# (time series classification) and gender, whole population and persons aged 15-64, 1971-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11br.px/
+px_11br <- pxweb_get(url = 
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11br.px",
+                     query = list("Sukupuoli" = c("SSS"), "Vuosi" = c("*"), "Tiedot" = c("ksyyikav", "ksyycdr"),
+                                  "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("*")))
+df_11br <- as_tibble(as.data.frame(px_11br, column.name.type = "text", variable.value.type = "text"))
+
+names(df_11br)
+
+df_11br |>
+  rename(Cause = "Underlying cause of death (time series classification)",
+         Standardized_100k = "Age-standardised death rate, whole population (1/100 000)",
+         Crude_100k = "Crude death rate, whole population (1/100 000)") |>
+  mutate(Year = as.integer(Year)) |>
+  filter(str_detect(Cause, "^[:digit:][:digit:][:space:]")) |>
+  select(Cause, Year, Standardized_100k, Crude_100k) |>
+  mutate(Cause = str_remove_all(Cause, " \\(.+\\)")) |>
+  group_by(Cause) |>
+  mutate(Total_deaths = sum(Crude_100k)) |>
+  ungroup() -> df_11br
+
+# Draw plot for yearly deaths by cause
+df_11br |>
+  mutate(Cause = as_factor(Cause)) |>
+  mutate(Cause = fct_other(Cause, keep = most_common_causes$Cause,
+                           other_level = "Other causes combined")) |>
+  group_by(Cause, Year) |>
+  summarise(Crude_100k = sum(Crude_100k), Total_deaths = sum(Total_deaths)) |>
+  ungroup() |>
+  mutate(Cause = as_factor(str_wrap(Cause, 40))) |>
+  mutate(Cause = fct_reorder(Cause, Total_deaths)) |>
+  ggplot(aes(Year, Crude_100k, fill = Cause)) +
+  geom_area(alpha=0.6 , size=1, colour="black") +
+  theme_classic() +
+  paletteer::scale_fill_paletteer_d("cartography::multi.pal", dynamic = T) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0))) + 
+  scale_y_continuous(expand = expansion(mult = c(0, 0)),
+                     labels = scales::label_comma()) +
+  theme(plot.background = element_rect(fill = "#FCFCFC", colour = "#FCFCFC"),
+        legend.title = element_blank(),
+        legend.background = element_blank(),
+        legend.key.size = unit(.84, "cm")) +
+  labs(x = NULL, y = "yearly deaths") #-> cause_year_plot
+
+
+df_11br |>
+  mutate(Cause = as_factor(Cause)) |>
+  mutate(Cause = fct_other(Cause, keep = most_common_causes$Cause,
+                           other_level = "Other causes combined")) |>
+  group_by(Cause, Year) |>
+  summarise(Deaths = sum(Standardized_100k), Total_deaths = sum(Total_deaths)) |>
+  ungroup() |>
+  mutate(Cause = as_factor(str_wrap(Cause, 40))) |>
+  mutate(Cause = fct_reorder(Cause, Total_deaths)) |>
+  ggplot(aes(Year, Deaths, fill = Cause)) +
+  geom_area(alpha=0.6 , size=1, colour="black") +
+  theme_classic() +
+  paletteer::scale_fill_paletteer_d("cartography::multi.pal", dynamic = T) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0))) + 
+  scale_y_continuous(expand = expansion(mult = c(0, 0)),
+                     labels = scales::label_comma()) +
+  theme(plot.background = element_rect(fill = "#FCFCFC", colour = "#FCFCFC"),
+        legend.title = element_blank(),
+        legend.background = element_blank(),
+        legend.key.size = unit(.84, "cm")) +
+  labs(x = NULL, y = "yearly deaths") #-> cause_year_plot
+###
+###
+###
+###
+
+
 # Calculate a trend score for causes (I'm just using improvised method)
 df_11bs |>
   group_by(Cause) |>
   mutate(Total_deaths = sum(Deaths)) |>
-  filter(Total_deaths >= 1000,
+  filter(Total_deaths >= 50000,
          Cause != "54 No death certificate") |>
   mutate(Percentage = Deaths/sum(Deaths),
          Weight = (Year-1994.5)/25.5,
          Weighted_percentage = Percentage * Weight,
          Trend_score = sum(Weighted_percentage)) |>
-  ungroup() -> df_11bs
+  ungroup() -> df_11bs_2
 
 # Function to draw the graphs
 create_trend_graph <- function(dt, legend_position, subtitle, palette){
@@ -181,23 +294,23 @@ create_trend_graph <- function(dt, legend_position, subtitle, palette){
           legend.title = element_blank())
 }
 
-# Get 8 cases with smallest trend scores and plot them
-df_11bs |>
-  slice_min(order_by = Trend_score, n = 52*8) |>
+# Get 5 cases with smallest trend scores and plot them
+df_11bs_2 |>
+  slice_min(order_by = Trend_score, n = 52*3) |>
   mutate(Cause = as_factor(Cause),
          Cause = fct_reorder2(Cause, desc(Year), Deaths)) |>
   create_trend_graph(c(0.22, 0.69),
                      "Causes of death getting less common",
-                     "ggthemes::calc") -> min_plot
+                     "ggthemes::calc") #-> min_plot
 
-# Get 8 cases with largest trend scores and plot them
-df_11bs |>
-  slice_max(order_by = Trend_score, n = 52*8) |>
+# Get 5 cases with largest trend scores and plot them
+df_11bs_2 |>
+  slice_max(order_by = Trend_score, n = 52*3) |>
   mutate(Cause = as_factor(Cause),
          Cause = fct_reorder2(Cause, Year, Deaths)) |>
   create_trend_graph(c(0.35, 0.69),
                      "Causes of death getting more common",
-                     "ggpomological::pomological_palette") -> max_plot
+                     "ggpomological::pomological_palette") #-> max_plot
 
 # Combine and annotate plots
 (min_plot / max_plot) +
