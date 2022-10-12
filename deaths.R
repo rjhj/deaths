@@ -13,7 +13,6 @@ library(scales) # for label_comma()
 library(data.table) # for fread()
 library(gridExtra) # for tableGrob()
 library(paletteer) # for scale_*_paletteer_*()
-library(geomtextpath)
 library(rmdformats) # for readthedown template
 
 
@@ -183,6 +182,36 @@ save_cause_year_plot(d_all, "Yearly deaths by cause (1971-2020)", "images//plot_
 save_cause_year_plot(d_crude_100k, "Crude death rate, whole population (1/100,000)", "images//plot_cause_year_2.png") 
 save_cause_year_plot(d_stand_100k, "Age-standardised death rate, whole population (1/100,000)", "images//plot_cause_year_3.png")
 
+# 11br -- Deaths, age-standardised and crude deaths rates by underlying cause of death
+# (time series classification) and gender, whole population and persons aged 15-64, 1971-2020
+# https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ksyyt/statfin_ksyyt_pxt_11br.px/
+px_11br_25_gender <- pxweb_get(url = 
+                       "https://statfin.stat.fi:443/PxWeb/api/v1/en/StatFin/ksyyt/statfin_ksyyt_pxt_11br.px",
+                     query = list("Sukupuoli" = c("1", "2"), "Vuosi" = c("*"), "Tiedot" = c("ksyylkm1", "ksyyikav", "ksyycdr"),
+                                  "Tilaston peruskuolemansyy (aikasarjaluokitus)" = c("25")))
+df_11br_25_gender <- as_tibble(as.data.frame(px_11br_25_gender, column.name.type = "text", variable.value.type = "text"))
+
+df_11br_25_gender |>
+  mutate(Gender = as_factor(Gender),
+         Year = as.integer(Year)) -> df_11br_25_gender
+
+df_11br_25_gender |>
+  ggplot(aes(Year, `Crude death rate, whole population (1/100 000)`, color = Gender)) +
+  geom_line(size = 1.1) +
+  scale_color_manual(values = c('#6BA3D6', '#EA6B73')) +
+  theme(plot.background = element_rect(fill = "#FCFCFC",
+                                       colour = "#FCFCFC"),
+        legend.position = c(0.08, 0.9),
+        legend.background = element_blank(),
+        legend.title = element_blank()) +
+  labs(subtitle = "By year",
+       y = NULL,
+       x = NULL) 
+df_11br_25_gender
+
+`Deaths, whole population`
+`Age-standardised death rate, whole population (1/100 000)`
+`Crude death rate, whole population (1/100 000)`
 # Causes by region --------------------------------------------------
 
 # Get the correspondence table between municipalities and regions in 2020

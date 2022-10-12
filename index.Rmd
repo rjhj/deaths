@@ -212,10 +212,11 @@ save_cause_year_plot(d_stand_100k, "Age-standardised death rate, whole populatio
 ![](images/plot_cause_year_2.png)
 ![](images/plot_cause_year_3.png)
 
-From the age-standardized plot above we can see that while death rates for most causes are getting lower, dementia (red color in the chart) has been getting worse. Part of the reason was given by [stat.fi](https://www.stat.fi/til/ksyyt/2020/ksyyt_2020_2021-12-10_kat_003_en.html):
+While death rates for most causes have been falling, deaths caused by dementia (red color in the charts) have been getting worse. Part of the reason was given by [stat.fi](https://www.stat.fi/til/ksyyt/2020/ksyyt_2020_2021-12-10_kat_003_en.html):
 
 >The growth is in part the result of more specific diagnostics and changes in the definitions of causes of death (WHO guidelines). From 2005, the causes of death statistics have adopted an international guideline that limits the use of pneumonia as a primary cause of death in connection with several chronic diseases. If a person, in addition to pneumonia, is suffering from, for example, dementia, dementia is selected as the primary cause of death.
 
+However, this doesn't seems to explain all the growth. It will be interesting to see if the age-standardised deaths caused by dementia will continue increasing in the coming years.
 
 ## Cause and region
 
@@ -439,7 +440,7 @@ for (i in seq(from = 1, to = length(causes))) {
 }
 ```
 
-Deaths in this section were calculated as sums of deaths for a five year period between 2016 and 2020 for each region. Expected deaths were calculated by comparing all deaths in Finland for the same period and standardized for each region by age, sex and population. Then deaths were divided by expected deaths to get Standardized Mortality Ratio (SMR). SMR over 1 is represented with red, around 1 with white and under 1 with blue.
+Deaths in this section were calculated as sums of deaths for a five year period between 2016 and 2020 for each region. Expected deaths were calculated by comparing all deaths in Finland for the same period and standardised for each region by age, sex and population. Then deaths were divided by expected deaths to get Standardised Mortality Ratio (SMR). SMR over 1 is represented with red, around 1 with white and under 1 with blue.
 
 Sources:
 
