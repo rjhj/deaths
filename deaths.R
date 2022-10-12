@@ -15,7 +15,6 @@ library(gridExtra) # for tableGrob()
 library(paletteer) # for scale_*_paletteer_*()
 library(rmdformats) # for readthedown template
 
-
 # History ------------------------------------------------------------------- 
 # 12at -- Vital statistics and population, 1749-2021
 # https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__kuol/statfin_kuol_pxt_12at.px/

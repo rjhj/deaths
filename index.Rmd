@@ -21,7 +21,7 @@ This work visualizes different statistics related to deaths and their causes in 
 
 All of the data is from [Statistics Finland's free-of-charge statistical databases](https://statfin.stat.fi/PxWeb/pxweb/en/StatFin/).
 
-These plots were created using R's ggplot2, which is a part of [Tidyverse](https://www.tidyverse.org/).
+These plots were created using R's ggplot2 library, which is a part of [Tidyverse](https://www.tidyverse.org/).
 
 Click the *Code* buttons to see the source code.
 
