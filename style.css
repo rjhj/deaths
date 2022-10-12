@@ -1,10 +1,48 @@
-#sidebar {
-    width: 200px;
-}
-
 #content {
     margin-left: 200px;
     max-width: 1100px;
+}
+
+#sidebar {
+    left: 200px;
+    width: 200px;
+}
+
+
+@media screen and (max-width: 768px){
+    #content {
+      margin-left: 0px;
+    }
+    
+    #sidebar {
+        left: -200px;
+        width: 200px;
+    }
+    #postamble {
+      left: -200px;
+    }
+    
+    #content.shift{
+        left: 50%;
+     }    
+    #content.shift #sidebar {
+      width: 50%;
+    }
+    #postamble.shift {
+      width: 50%;
+    }
+
+}
+
+@media screen and (min-width: 768px){
+    #postamble {
+      left:0;
+      width: 200px;
+    }
+    #sidebar {
+        left: 0;
+        width: 200px;
+    }
 }
 
 div.col-md-12 .pull-right {
