@@ -91,7 +91,7 @@ title = "Yearly deaths, population and births in Finland, 1749 - 2021",
 caption = "source: Tilastokeskus 12at -- Vital statistics and population, 1749-2021"
 ) -> plot_yearly
 
-# Save as picture
+# Save as a picture
 ggsave("images//1_plot_yearly.png", plot_yearly, device = "png", dpi = 96,
        width = 9, height = 9, units = c("in"))
 
@@ -171,7 +171,7 @@ save_cause_year_plot <- function(col_y, title, filename) {
     caption = "source: Tilastokeskus 11br -- Deaths, age-standardised and crude deaths rates by underlying cause of death"
   ) -> p
   
-  # Save as picture
+  # Save as a picture
   ggsave(filename, p, device = "png", dpi = 96,
          width = 9, height = 8.5, units = c("in"))
 }
@@ -868,7 +868,7 @@ plot_annotation(theme = theme(plot.background = element_rect(fill = "#FCFCFC",
                 caption = "source: Tilastokeskus 2z6 -- Deaths by month, underlying cause of death and gender"
                 ) -> plot_s_3
 
-# Save as picture
+# Save as a picture
 ggsave("images//4_plot_s_3.png", plot_s_3, device = "png", dpi = 96,
        width = 9, height = 7, units = c("in"))
 
