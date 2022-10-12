@@ -212,7 +212,7 @@ save_cause_year_plot(d_stand_100k, "Age-standardised death rate, whole populatio
 ![](images/plot_cause_year_2.png)
 ![](images/plot_cause_year_3.png)
 
-While death rates for most causes have been falling, deaths caused by dementia (red color on the charts) have been getting worse. Part of the reason was given by [stat.fi](https://www.stat.fi/til/ksyyt/2020/ksyyt_2020_2021-12-10_kat_003_en.html):
+While death rates for most causes have been falling, deaths caused by dementia (red color on the charts) have been increasing. Part of the reason was given by [stat.fi](https://www.stat.fi/til/ksyyt/2020/ksyyt_2020_2021-12-10_kat_003_en.html):
 
 >The growth is in part the result of more specific diagnostics and changes in the definitions of causes of death (WHO guidelines). From 2005, the causes of death statistics have adopted an international guideline that limits the use of pneumonia as a primary cause of death in connection with several chronic diseases. If a person, in addition to pneumonia, is suffering from, for example, dementia, dementia is selected as the primary cause of death.
 
